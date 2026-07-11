@@ -9,7 +9,7 @@ import { Input } from "../components/Input";
 import { TextArea } from "../components/TextArea";
 import { QuotePreview } from "./QuotePreview";
 
-const AI_DRAFT_ENABLED = false; // true로 바꾸면 AI 견적 초안 기능이 다시 켜집니다
+const AI_DRAFT_ENABLED = true; // false로 바꾸면 AI 견적 초안 기능이 숨겨집니다
 
 export function QuoteBuilder({
   quote,

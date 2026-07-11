@@ -33,9 +33,15 @@ POPBILL_IS_TEST=true    # true=테스트베드(연습), false=실제 발행
 - 팝빌 쪽 발행 수수료가 건당 별도로 있음 (연동 전까지는 무료 mock).
 - `POPBILL_IS_TEST=true`(기본값)이면 실제 국세청 전송 없이 테스트베드에서 연습 가능.
 
-## 2. AI 견적 초안 생성 (Claude API)
+## 2. AI 견적 초안 생성
 
-**구현 완료, 현재는 꺼둔 상태.**
+**⭐ 업데이트 (같은 날 오후): 무료 Google Gemini 엔진으로 교체 완료, 기능 켜짐, 실동작 검증 완료.**
+
+- 엔진 우선순위: `.env`의 `GEMINI_API_KEY`(무료, aistudio.google.com/apikey) 있으면 Gemini `gemini-flash-latest` 사용 → 없으면 `ANTHROPIC_API_KEY`(유료) → 둘 다 없으면 안내 메시지.
+- Gemini 무료 할당량으로 동작하므로 **비용 0원**. 브라우저에서 실제 초안 생성까지 검증함.
+- 아래는 Claude 엔진(대안)에 대한 기존 기록:
+
+**(참고) Claude API 경로 — 현재는 대안 엔진.**
 
 - `api/ai/draft-quote.js` — Anthropic 공식 SDK, 모델 `claude-opus-4-8`, JSON 스키마 강제 출력.
   의뢰 설명 → 프로젝트명·작업 항목(2~5개)·금액·납품 형식/일정·유의사항·인사 메시지 초안 생성.
