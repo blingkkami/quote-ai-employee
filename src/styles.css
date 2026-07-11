@@ -456,6 +456,58 @@ th {
 
 .search input {
   padding-left: 34px;
+  padding-right: 42px;
+}
+
+.search-clear {
+  position: absolute;
+  right: 3px;
+  top: 2px;
+  width: 34px;
+  min-height: 34px;
+  border: 0;
+  background: transparent;
+}
+
+.search-clear:hover {
+  background: #eef2f7;
+}
+
+.search-shortcut,
+.search-count {
+  color: #7b8798;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.search-shortcut {
+  margin-left: -2px;
+  padding: 3px 6px;
+  border: 1px solid #e1e7ef;
+  border-radius: 5px;
+  background: #f8fafc;
+}
+
+.search-count {
+  margin-left: auto;
+}
+
+.empty-state {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 46px 20px;
+  color: #778295;
+  text-align: center;
+}
+
+.empty-state strong {
+  color: #334155;
+  font-size: 14px;
+}
+
+.empty-state span {
+  font-size: 12px;
 }
 
 .table-wrap {
