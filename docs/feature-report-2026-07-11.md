@@ -35,32 +35,9 @@ POPBILL_IS_TEST=true    # true=테스트베드(연습), false=실제 발행
 
 ## 2. AI 견적 초안 생성
 
-**⭐ 업데이트 (같은 날 오후): 무료 Google Gemini 엔진으로 교체 완료, 기능 켜짐, 실동작 검증 완료.**
+**2026-07-12 사용자 요청으로 기능 전체 삭제됨.** 복구가 필요하면 git 기록(커밋 ee46206 이전)에서 되살릴 수 있음.
 
-- 엔진 우선순위: `.env`의 `GEMINI_API_KEY`(무료, aistudio.google.com/apikey) 있으면 Gemini `gemini-flash-latest` 사용 → 없으면 `ANTHROPIC_API_KEY`(유료) → 둘 다 없으면 안내 메시지.
-- Gemini 무료 할당량으로 동작하므로 **비용 0원**. 브라우저에서 실제 초안 생성까지 검증함.
-- 아래는 Claude 엔진(대안)에 대한 기존 기록:
-
-**(참고) Claude API 경로 — 현재는 대안 엔진.**
-
-- `api/ai/draft-quote.js` — Anthropic 공식 SDK, 모델 `claude-opus-4-8`, JSON 스키마 강제 출력.
-  의뢰 설명 → 프로젝트명·작업 항목(2~5개)·금액·납품 형식/일정·유의사항·인사 메시지 초안 생성.
-- `src/lib/ai-draft.ts` — 프론트 클라이언트.
-- `src/views/QuoteBuilder.tsx` — 견적 생성 화면 상단 "AI 견적 초안" 섹션 (입력창 + 버튼, 초안이 폼/항목에 자동 반영).
-
-**켜고 끄는 스위치**: `src/views/QuoteBuilder.tsx` 상단
-
-```ts
-const AI_DRAFT_ENABLED = false; // true로 바꾸면 AI 견적 초안 기능이 다시 켜집니다
-```
-
-**다시 켜려면 (3가지 필요)**:
-1. 위 상수를 `true`로 변경
-2. `.env`에 `ANTHROPIC_API_KEY` (발급: https://console.anthropic.com/settings/keys — 이미 넣어둠)
-3. Anthropic API **크레딧 충전** (https://console.anthropic.com/settings/billing, 최소 $5)
-   - claude.ai 구독(Pro/Max)과 API 크레딧은 별개
-   - 초안 생성 1회당 대략 몇십~몇백 원 수준, 쓴 만큼만 과금
-   - **키만 있고 호출하지 않으면 비용 0원** — 꺼둔 지금은 요금이 전혀 발생하지 않음
+(과거 기록 요약) 의뢰 내용을 문장으로 넣으면 프로젝트명·작업 항목·금액·납품 정보·인사 메시지 초안을 생성하던 기능. 관련 파일 `api/ai/draft-quote.js`, `src/lib/ai-draft.ts`, `QuoteBuilder.tsx`의 "AI 견적 초안" 섹션과 `@anthropic-ai/sdk` 의존성, `GEMINI_API_KEY`/`ANTHROPIC_API_KEY` 환경변수를 모두 제거함.
 
 ## 3. 기타
 

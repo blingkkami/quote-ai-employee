@@ -1,15 +1,12 @@
 import { useEffect, useState } from "react";
-import { CheckCircle2, Plus, Save, Trash2, Wand2 } from "lucide-react";
+import { CheckCircle2, Plus, Save, Trash2 } from "lucide-react";
 import type { Customer, QuoteRecord } from "../types";
 import { uid } from "../lib/id";
-import { requestQuoteDraft } from "../lib/ai-draft";
 import { invoiceLabels } from "../constants";
 import { SectionTitle } from "../components/SectionTitle";
 import { Input } from "../components/Input";
 import { TextArea } from "../components/TextArea";
 import { QuotePreview } from "./QuotePreview";
-
-const AI_DRAFT_ENABLED = true; // false로 바꾸면 AI 견적 초안 기능이 숨겨집니다
 
 export function QuoteBuilder({
   quote,
@@ -25,9 +22,6 @@ export function QuoteBuilder({
   onCustomerUpdate: (customer: Customer) => void;
 }) {
   const [draft, setDraft] = useState(quote);
-  const [aiBrief, setAiBrief] = useState("");
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiError, setAiError] = useState("");
   useEffect(() => setDraft(quote), [quote.id]);
   useEffect(() => {
     if (draft === quote) return;
@@ -37,33 +31,6 @@ export function QuoteBuilder({
 
   const customer = customers.find((item) => item.id === draft.customerId);
 
-  const generateDraft = async () => {
-    setAiLoading(true);
-    const result = await requestQuoteDraft(aiBrief.trim(), customer?.name);
-    if (result.ok && result.draft) {
-      const d = result.draft;
-      setAiError(result.fallback ? result.message || "AI 연동 전 기본 초안을 적용했습니다." : "");
-      setDraft({
-        ...draft,
-        form: {
-          ...draft.form,
-          projectName: d.projectName,
-          deliveryFormat: d.deliveryFormat,
-          deliverySchedule: d.deliverySchedule,
-          finalCategory: d.finalCategory,
-          finalDescription: d.finalDescription,
-          notes: d.notes,
-          message: d.message
-        },
-        items: d.items.length
-          ? d.items.map((i) => ({ id: uid("item"), category: i.category, description: i.description, price: i.price }))
-          : draft.items
-      });
-    } else {
-      setAiError(result.message || "AI 초안 생성에 실패했습니다.");
-    }
-    setAiLoading(false);
-  };
   const setForm = (field: keyof QuoteRecord["form"], value: string) => setDraft({ ...draft, form: { ...draft.form, [field]: value } });
   const updateItem = (id: string, patch: Partial<QuoteRecord["items"][number]>) =>
     setDraft({ ...draft, items: draft.items.map((row) => (row.id === id ? { ...row, ...patch } : row)) });
@@ -84,17 +51,6 @@ export function QuoteBuilder({
   return (
     <section className="split">
       <div className="panel editor">
-        {AI_DRAFT_ENABLED && (
-          <>
-            <SectionTitle title="AI 견적 초안" hint="의뢰 내용을 한두 문장으로 적으면 항목과 금액 초안을 채워줍니다." />
-            <TextArea label="의뢰 내용" value={aiBrief} onChange={setAiBrief} />
-            <button className="ghost" disabled={aiLoading || aiBrief.trim() === ""} onClick={generateDraft}>
-              <Wand2 size={17} /> {aiLoading ? "생성 중…" : "AI 초안 생성"}
-            </button>
-            {aiError && <p className="ai-error">{aiError}</p>}
-          </>
-        )}
-
         <SectionTitle title="입력" hint="입력 내용은 자동 저장됩니다. 고객 기본값은 추천값이며 이번 건에서 수정할 수 있습니다." />
         <label>
           고객

@@ -3,8 +3,7 @@ import react from "@vitejs/plugin-react";
 
 const apiHandlers: Record<string, string> = {
   "/api/popbill/issue": "./api/popbill/issue.js",
-  "/api/popbill/webhook": "./api/popbill/webhook.js",
-  "/api/ai/draft-quote": "./api/ai/draft-quote.js"
+  "/api/popbill/webhook": "./api/popbill/webhook.js"
 };
 
 // Dev-only bridge: adapt Node req/res to the Vercel-style (request, response) handlers in api/.
