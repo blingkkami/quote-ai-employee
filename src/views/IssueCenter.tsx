@@ -25,6 +25,7 @@ export function IssueCenter({ quote, customers, onApprove, onExportCsv }: { quot
           <dt>발행 상태</dt>
           <dd><Status tone={quote.invoiceStatus ?? "pending"}>{quote.invoiceStatus ?? "pending"}</Status></dd>
         </dl>
+        {quote.invoiceNote && <p className="ai-error">{quote.invoiceNote}</p>}
         <div className="actions">
           <button onClick={() => onApprove(quote)}>
             <Send size={17} /> 승인 및 발행 실행

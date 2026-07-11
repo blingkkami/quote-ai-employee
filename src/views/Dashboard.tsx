@@ -17,9 +17,11 @@ type DashboardTotals = {
 export function Dashboard({ data, totals }: { data: AppData; totals: DashboardTotals }) {
   const [showGraph, setShowGraph] = useState(false);
   const [period, setPeriod] = useState<"month" | "year">("month");
-  const periodKey = new Date().toISOString().slice(0, period === "month" ? 7 : 4);
-  const periodSales = data.sales.filter((sale) => sale.createdAt.startsWith(periodKey));
-  const periodPurchases = data.purchases.filter((purchase) => purchase.createdAt.startsWith(periodKey));
+  const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  const periodKey = period === "month" ? monthKey(new Date()) : String(new Date().getFullYear());
+  const recordKey = (iso: string) => (period === "month" ? monthKey(new Date(iso)) : String(new Date(iso).getFullYear()));
+  const periodSales = data.sales.filter((sale) => recordKey(sale.createdAt) === periodKey);
+  const periodPurchases = data.purchases.filter((purchase) => recordKey(purchase.createdAt) === periodKey);
   const periodTotals = {
     sales: periodSales.reduce((sum, sale) => sum + sale.amount, 0),
     paid: periodSales.reduce((sum, sale) => sum + sale.paidAmount, 0),
@@ -39,10 +41,10 @@ export function Dashboard({ data, totals }: { data: AppData; totals: DashboardTo
     const current = new Date();
     return Array.from({ length: 6 }, (_, index) => {
       const date = new Date(current.getFullYear(), current.getMonth() - (5 - index), 1);
-      const key = date.toISOString().slice(0, 7);
+      const key = monthKey(date);
       return {
         label: `${date.getMonth() + 1}월`,
-        value: data.sales.filter((sale) => sale.createdAt.startsWith(key)).reduce((sum, sale) => sum + sale.amount, 0)
+        value: data.sales.filter((sale) => monthKey(new Date(sale.createdAt)) === key).reduce((sum, sale) => sum + sale.amount, 0)
       };
     });
   }, [data.sales]);

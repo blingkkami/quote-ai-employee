@@ -52,6 +52,7 @@ export type QuoteRecord = {
   };
   popbillInvoiceId?: string;
   invoiceStatus?: "pending" | "issued" | "sent" | "failed";
+  invoiceNote?: string;
   createdAt: string;
   updatedAt: string;
 };

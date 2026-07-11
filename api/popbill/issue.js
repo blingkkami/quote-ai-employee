@@ -77,9 +77,9 @@ export default async function handler(request, response) {
       response.status(200).json({
         ok: true,
         mode: "mock",
-        invoiceStatus: "issued",
-        popbillInvoiceId: `PB-MOCK-${Date.now().toString(36).toUpperCase()}`,
-        quoteId
+        invoiceStatus: "pending",
+        message: "팝빌 인증정보가 없어 실제 발행되지 않았습니다. 설정 후 다시 발행해 주세요. (모의 처리)",
+        quoteId: body.quoteId
       });
       return;
     }

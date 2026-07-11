@@ -29,6 +29,11 @@ export function QuoteBuilder({
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
   useEffect(() => setDraft(quote), [quote.id]);
+  useEffect(() => {
+    if (draft === quote) return;
+    const timer = setTimeout(() => onSave(draft), 600);
+    return () => clearTimeout(timer);
+  }, [draft]);
 
   const customer = customers.find((item) => item.id === draft.customerId);
 
@@ -90,7 +95,7 @@ export function QuoteBuilder({
           </>
         )}
 
-        <SectionTitle title="입력" hint="고객 기본값은 추천값이며 이번 건에서 수정할 수 있습니다." />
+        <SectionTitle title="입력" hint="입력 내용은 자동 저장됩니다. 고객 기본값은 추천값이며 이번 건에서 수정할 수 있습니다." />
         <label>
           고객
           <select value={draft.customerId ?? ""} onChange={(event) => applyCustomerPreference(event.target.value)}>

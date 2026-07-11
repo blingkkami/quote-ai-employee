@@ -64,8 +64,11 @@ function App() {
   };
 
   const approveQuote = async (quote: QuoteRecord) => {
-    const customerId = quote.customerId || data.customers[0]?.id;
-    if (!customerId) return;
+    const customerId = quote.customerId;
+    if (!customerId) {
+      window.alert("승인하려면 먼저 고객을 선택해 주세요.");
+      return;
+    }
     const amount = quoteTotal(quote);
     const approved: QuoteRecord = {
       ...quote,
@@ -78,7 +81,9 @@ function App() {
     const sale = data.sales.find((record) => record.quoteId === quote.id);
     setData((prev) => ({
       ...prev,
-      quotes: prev.quotes.map((item) => (item.id === quote.id ? approved : item)),
+      quotes: prev.quotes.some((item) => item.id === quote.id)
+        ? prev.quotes.map((item) => (item.id === quote.id ? approved : item))
+        : [approved, ...prev.quotes],
       sales: sale
         ? prev.sales.map((record) => (record.quoteId === quote.id ? { ...record, amount, updatedAt: new Date().toISOString() } : record))
         : [
@@ -118,7 +123,7 @@ function App() {
     if (!customer?.businessNumber) {
       setData((prev) => ({
         ...prev,
-        quotes: prev.quotes.map((item) => (item.id === quote.id ? { ...item, invoiceStatus: "failed" } : item))
+        quotes: prev.quotes.map((item) => (item.id === quote.id ? { ...item, invoiceStatus: "failed", invoiceNote: "고객 사업자번호가 없어 발행할 수 없습니다." } : item))
       }));
       return;
     }
@@ -152,7 +157,8 @@ function App() {
           ? {
               ...item,
               invoiceStatus: result.invoiceStatus,
-              popbillInvoiceId: result.popbillInvoiceId ?? item.popbillInvoiceId
+              popbillInvoiceId: result.popbillInvoiceId ?? item.popbillInvoiceId,
+              invoiceNote: result.message
             }
           : item
       ),
