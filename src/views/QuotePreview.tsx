@@ -1,72 +1,158 @@
+import { useLayoutEffect, useRef, useState } from "react";
 import type { Customer, QuoteRecord } from "../types";
 import { exampleQuoteForm, exampleQuoteItems } from "../data/quote-defaults";
 import { money } from "../lib/format";
-import { quoteSubtotal, quoteTotal, quoteVat } from "../lib/quote-calc";
+import { koreanDate, today } from "../lib/date";
+import { quoteSubtotal, quoteTotal } from "../lib/quote-calc";
 
-export function QuotePreview({ quote, customer }: { quote: QuoteRecord; customer?: Customer }) {
-  const empty = Object.values(quote.form).every((value) => !String(value).trim()) && quote.items.every((item) => !item.category && !item.description && !item.price);
+function buildValidDuration(validDuration: string, quoteDate: string) {
+  if (!validDuration) return "-";
+  const match = validDuration.match(/(\d+)\s*일/);
+  if (!match || validDuration.includes("총 유효")) return validDuration;
+  const base = new Date(quoteDate);
+  if (!quoteDate || Number.isNaN(base.getTime())) return validDuration;
+  base.setDate(base.getDate() + Number(match[1]));
+  const until = `${base.getFullYear()}년 ${base.getMonth() + 1}월 ${base.getDate()}일`;
+  return `${validDuration} (${until} 총 유효)`;
+}
+
+const PAPER_WIDTH = 794;
+const PAPER_MIN_HEIGHT = 1123;
+
+export function QuotePreview({ quote, logo }: { quote: QuoteRecord; customer?: Customer; logo?: string }) {
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const paperRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+  const [paperHeight, setPaperHeight] = useState(PAPER_MIN_HEIGHT);
+
+  useLayoutEffect(() => {
+    const wrap = wrapRef.current;
+    const paper = paperRef.current;
+    if (!wrap || !paper) return;
+    const update = () => {
+      const width = wrap.clientWidth;
+      setScale(width > 0 ? Math.min(1, width / PAPER_WIDTH) : 1);
+      setPaperHeight(Math.max(PAPER_MIN_HEIGHT, paper.scrollHeight));
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(wrap);
+    observer.observe(paper);
+    return () => observer.disconnect();
+  }, []);
+
+  const empty =
+    Object.values(quote.form).every((value) => !String(value).trim()) &&
+    quote.items.every((item) => !item.category && !item.description && !item.price);
   const previewQuote = empty ? { ...quote, form: exampleQuoteForm, items: exampleQuoteItems } : quote;
-  const previewCustomerName = customer?.name ?? (empty ? "루미너스 에센스" : "고객 미선택");
+  const form = previewQuote.form;
+
+  const subtotal = quoteSubtotal(previewQuote);
+  const total = quoteTotal(previewQuote);
+
+  const noteLines = form.notes.split("\n").map((line) => line.trim()).filter(Boolean);
+
+  const senderBase = form.signOffSender.trim();
+  const senderLine = senderBase.endsWith("드림") ? senderBase : `${senderBase} 드림`;
+  const signDateSource = form.signOffDate || form.quoteDate || today();
+  const signDate = koreanDate(signDateSource);
+
   return (
     <div className="preview-wrap">
-      <div className="quote-paper">
-        <div className="paper-head">
-          <div>
-            <p>Quotation</p>
-            <h2>{empty ? "예시 견적서" : previewQuote.form.projectName || "프로젝트명 미입력"}</h2>
-          </div>
-          <span>블링까미</span>
+      <div className="qp-scale-wrap" ref={wrapRef} style={{ height: paperHeight * scale, overflow: "hidden" }}>
+        <div className="qp-paper" ref={paperRef} style={{ transform: `scale(${scale})`, transformOrigin: "top left" }}>
+        <div className="qp-header">
+          {logo && <img className="qp-logo" src={logo} alt="로고" />}
+          <h1 className="qp-title">견적서</h1>
+          <p className="qp-subtitle">QUOTATION</p>
+          <div className="qp-header-divider" />
         </div>
-        <div className="paper-grid">
-          <div>
-            <b>공급자</b>
-            <span>{previewQuote.form.issuerName || "-"}</span>
-          </div>
-          <div>
-            <b>고객</b>
-            <span>{previewCustomerName}</span>
-          </div>
-          <div>
-            <b>견적일</b>
-            <span>{previewQuote.form.quoteDate}</span>
-          </div>
-          <div>
-            <b>유효기간</b>
-            <span>{previewQuote.form.validDuration}</span>
-          </div>
-        </div>
-        <table>
-          <thead>
-            <tr>
-              <th>구분</th>
-              <th>내용</th>
-              <th>금액</th>
-            </tr>
-          </thead>
-          <tbody>
-            {previewQuote.items.map((item) => (
-              <tr key={item.id}>
-                <td>{item.category || "-"}</td>
-                <td>{item.description || "-"}</td>
-                <td>{money(item.price)}원</td>
+
+        <section className="qp-section">
+          <h3 className="qp-section-title">기본 정보</h3>
+          <div className="qp-section-bar" />
+          <table className="qp-info-table">
+            <tbody>
+              <tr>
+                <td className="qp-label">견적일</td>
+                <td className="qp-value">{koreanDate(form.quoteDate) || "-"}</td>
+                <td className="qp-label">유효기간</td>
+                <td className="qp-value">{buildValidDuration(form.validDuration, form.quoteDate)}</td>
               </tr>
+              <tr>
+                <td className="qp-label">공급자</td>
+                <td className="qp-value">{form.issuerName || "-"}</td>
+                <td className="qp-label">프로젝트명</td>
+                <td className="qp-value">{form.projectName || "-"}</td>
+              </tr>
+              <tr>
+                <td className="qp-label">납품 형식</td>
+                <td className="qp-value">{form.deliveryFormat || "-"}</td>
+                <td className="qp-label">납기 예정</td>
+                <td className="qp-value">{form.deliverySchedule || "-"}</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section className="qp-section">
+          <h3 className="qp-section-title">작업 항목 (옵션형)</h3>
+          <div className="qp-section-bar" />
+          <table className="qp-items-table">
+            <thead>
+              <tr>
+                <th className="qp-col-category">항목</th>
+                <th className="qp-col-desc">내용</th>
+                <th className="qp-col-amount">금액</th>
+              </tr>
+            </thead>
+            <tbody>
+              {previewQuote.items.map((item) => (
+                <tr key={item.id}>
+                  <td className="qp-item-category">{item.category || "-"}</td>
+                  <td className="qp-item-desc">{item.description || "-"}</td>
+                  <td className="qp-item-amount">{money(item.price)}원</td>
+                </tr>
+              ))}
+              <tr className="qp-highlight-row">
+                <td className="qp-final-category">{form.finalCategory}</td>
+                <td className="qp-final-desc">{form.finalDescription}</td>
+                <td className="qp-final-amount">
+                  <span className="qp-final-sum">{money(subtotal)}원</span>
+                  <span className="qp-final-vat">부가세 별도</span>
+                </td>
+              </tr>
+              <tr className="qp-total-row">
+                <td className="qp-total-cell" colSpan={2}>
+                  <div>총 견적 (부가세 제외) : {money(subtotal)}원</div>
+                  <div>총 견적 (부가세 포함) : {money(total)}원</div>
+                </td>
+                <td className="qp-total-empty" />
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section className="qp-section">
+          <h3 className="qp-section-title">유의사항</h3>
+          <div className="qp-section-bar" />
+          <ul className="qp-notes">
+            {noteLines.map((line, index) => (
+              <li key={index}>{line}</li>
             ))}
-          </tbody>
-        </table>
-        <div className="totals">
-          <span>공급가 {money(quoteSubtotal(previewQuote))}원</span>
-          <span>VAT {money(quoteVat(previewQuote))}원</span>
-          <strong>합계 {money(quoteTotal(previewQuote))}원</strong>
-        </div>
-        <div className="paper-note">
-          <b>{previewQuote.form.finalCategory}</b>
-          <p>{previewQuote.form.finalDescription}</p>
-          <p>{previewQuote.form.notes}</p>
-          <p>{previewQuote.form.message}</p>
-        </div>
-        <div className="paper-sign">
-          <span>{previewQuote.form.signOffSender}</span>
-          <span>{previewQuote.form.signOffDate}</span>
+          </ul>
+        </section>
+
+        <section className="qp-section">
+          <h3 className="qp-section-title">전달 말씀</h3>
+          <div className="qp-section-bar" />
+          <div className="qp-message">{form.message}</div>
+        </section>
+
+          <div className="qp-signoff">
+            <div className="qp-signoff-sender">{senderLine}</div>
+            <div className="qp-signoff-date">{signDate}</div>
+          </div>
         </div>
       </div>
     </div>

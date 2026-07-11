@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, Plus, Save, Trash2 } from "lucide-react";
 import type { Customer, QuoteRecord } from "../types";
 import { uid } from "../lib/id";
@@ -13,15 +13,20 @@ export function QuoteBuilder({
   customers,
   onSave,
   onApprove,
-  onCustomerUpdate
+  onCustomerUpdate,
+  logo,
+  onLogoChange
 }: {
   quote: QuoteRecord;
   customers: Customer[];
   onSave: (quote: QuoteRecord) => void;
   onApprove: (quote: QuoteRecord) => void;
   onCustomerUpdate: (customer: Customer) => void;
+  logo?: string;
+  onLogoChange: (logoDataUrl?: string) => void;
 }) {
   const [draft, setDraft] = useState(quote);
+  const logoInputRef = useRef<HTMLInputElement>(null);
   useEffect(() => setDraft(quote), [quote.id]);
   useEffect(() => {
     if (draft === quote) return;
@@ -34,6 +39,13 @@ export function QuoteBuilder({
   const setForm = (field: keyof QuoteRecord["form"], value: string) => setDraft({ ...draft, form: { ...draft.form, [field]: value } });
   const updateItem = (id: string, patch: Partial<QuoteRecord["items"][number]>) =>
     setDraft({ ...draft, items: draft.items.map((row) => (row.id === id ? { ...row, ...patch } : row)) });
+
+  const handleLogoFile = (file?: File) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => onLogoChange(typeof reader.result === "string" ? reader.result : undefined);
+    reader.readAsDataURL(file);
+  };
 
   const applyCustomerPreference = (customerId: string) => {
     const selected = customers.find((item) => item.id === customerId);
@@ -51,6 +63,28 @@ export function QuoteBuilder({
   return (
     <section className="split">
       <div className="panel editor">
+        <div className="toolbar">
+          <span>로고</span>
+          <input
+            ref={logoInputRef}
+            type="file"
+            accept="image/*"
+            style={{ display: "none" }}
+            onChange={(event) => {
+              handleLogoFile(event.target.files?.[0]);
+              event.target.value = "";
+            }}
+          />
+          {logo && <img src={logo} alt="로고 미리보기" style={{ height: 28, maxWidth: 120, objectFit: "contain" }} />}
+          <button className="ghost" onClick={() => logoInputRef.current?.click()}>
+            로고 업로드
+          </button>
+          {logo && (
+            <button className="ghost" onClick={() => onLogoChange(undefined)}>
+              삭제
+            </button>
+          )}
+        </div>
         <SectionTitle title="입력" hint="입력 내용은 자동 저장됩니다. 고객 기본값은 추천값이며 이번 건에서 수정할 수 있습니다." />
         <label>
           고객
@@ -146,7 +180,7 @@ export function QuoteBuilder({
           </button>
         </div>
       </div>
-      <QuotePreview quote={draft} customer={customer} />
+      <QuotePreview quote={draft} customer={customer} logo={logo} />
     </section>
   );
 }

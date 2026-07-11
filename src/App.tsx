@@ -202,6 +202,17 @@ function App() {
     }));
   };
 
+  const handlePrint = () => {
+    const projectName = activeQuote.form.projectName.trim() || "견적서";
+    const quoteDate = activeQuote.form.quoteDate || new Date().toISOString().slice(0, 10);
+    const sanitize = (value: string) => value.replace(/[\\/:*?"<>|]/g, "-");
+    const previousTitle = document.title;
+    document.title = sanitize(`견적서_${projectName}_${quoteDate}`);
+    window.addEventListener("afterprint", () => (document.title = previousTitle), { once: true });
+    window.print();
+    setTimeout(() => (document.title = previousTitle), 0);
+  };
+
   const exportCsv = () => {
     const rows = [
       ["견적ID", "고객", "프로젝트", "공급가", "부가세", "합계", "발행방식"],
@@ -254,7 +265,7 @@ function App() {
             <h1>{nav.find((item) => item.id === view)?.label}</h1>
           </div>
           <div className="top-actions">
-            <button className="ghost" onClick={() => window.print()}>
+            <button className="ghost" onClick={handlePrint}>
               <Printer size={17} /> PDF/인쇄
             </button>
             <button
@@ -271,6 +282,8 @@ function App() {
             customers={data.customers}
             onSave={updateQuote}
             onApprove={approveQuote}
+            logo={data.logoDataUrl}
+            onLogoChange={(logoDataUrl?: string) => setData((prev) => ({ ...prev, logoDataUrl }))}
             onCustomerUpdate={(customer) =>
               setData((prev) => ({
                 ...prev,

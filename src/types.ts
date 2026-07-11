@@ -120,4 +120,5 @@ export type AppData = {
   sales: SaleRecord[];
   purchases: PurchaseRecord[];
   taxApiIntegration: TaxApiIntegration;
+  logoDataUrl?: string;
 };
