@@ -37,7 +37,7 @@ export function QuoteBuilder({
     const result = await requestQuoteDraft(aiBrief.trim(), customer?.name);
     if (result.ok && result.draft) {
       const d = result.draft;
-      setAiError("");
+      setAiError(result.fallback ? result.message || "AI 연동 전 기본 초안을 적용했습니다." : "");
       setDraft({
         ...draft,
         form: {
@@ -121,12 +121,12 @@ export function QuoteBuilder({
           </div>
         )}
         <div className="grid two">
-          <Input label="견적일" type="date" value={draft.form.quoteDate} onChange={(value) => setForm("quoteDate", value)} />
-          <Input label="유효기간" value={draft.form.validDuration} onChange={(value) => setForm("validDuration", value)} />
-          <Input label="공급자" value={draft.form.issuerName} onChange={(value) => setForm("issuerName", value)} />
+          <Input label="견적일" type="date" value={draft.form.quoteDate} placeholder="2026-05-18" onChange={(value) => setForm("quoteDate", value)} />
+          <Input label="유효기간" value={draft.form.validDuration} placeholder="견적일로부터 14일" onChange={(value) => setForm("validDuration", value)} />
+          <Input label="공급자" value={draft.form.issuerName} placeholder="블링까미 스튜디오" onChange={(value) => setForm("issuerName", value)} />
           <Input label="프로젝트명" value={draft.form.projectName} placeholder="예: 신제품 상세페이지 제작" onChange={(value) => setForm("projectName", value)} />
-          <Input label="납품 형식" value={draft.form.deliveryFormat} onChange={(value) => setForm("deliveryFormat", value)} />
-          <Input label="납품 일정" value={draft.form.deliverySchedule} onChange={(value) => setForm("deliverySchedule", value)} />
+          <Input label="납품 형식" value={draft.form.deliveryFormat} placeholder="PDF, JPG, 원본 파일" onChange={(value) => setForm("deliveryFormat", value)} />
+          <Input label="납품 일정" value={draft.form.deliverySchedule} placeholder="착수 후 7영업일 이내" onChange={(value) => setForm("deliverySchedule", value)} />
         </div>
 
         <SectionTitle title="작업 항목" hint="최소 1개 항목은 유지됩니다." />
@@ -152,11 +152,11 @@ export function QuoteBuilder({
         </button>
 
         <div className="grid two">
-          <Input label="최종 구성 구분" value={draft.form.finalCategory} onChange={(value) => setForm("finalCategory", value)} />
-          <Input label="최종 구성 내용" value={draft.form.finalDescription} onChange={(value) => setForm("finalDescription", value)} />
+          <Input label="최종 구성 구분" value={draft.form.finalCategory} placeholder="최종 풀구성" onChange={(value) => setForm("finalCategory", value)} />
+          <Input label="최종 구성 내용" value={draft.form.finalDescription} placeholder="기획 + 디자인 + 원본 파일" onChange={(value) => setForm("finalDescription", value)} />
         </div>
-        <TextArea label="유의사항" value={draft.form.notes} onChange={(value) => setForm("notes", value)} />
-        <TextArea label="전달 메시지" value={draft.form.message} onChange={(value) => setForm("message", value)} />
+        <TextArea label="유의사항" value={draft.form.notes} placeholder="수정 횟수, 추가 비용, 납품 조건" onChange={(value) => setForm("notes", value)} />
+        <TextArea label="전달 메시지" value={draft.form.message} placeholder="고객에게 전달할 말씀" onChange={(value) => setForm("message", value)} />
 
         <SectionTitle title="발행·정산 옵션" hint="자동 발행은 Popbill 연동 지점까지 상태를 추적합니다." />
         <div className="segmented">

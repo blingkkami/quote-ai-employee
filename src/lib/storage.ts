@@ -1,7 +1,7 @@
 import type { AppData } from "../types";
 import { defaultData } from "../data/seed";
 
-export const STORAGE_KEY = "blingkkami-ai-quote-employee:v7";
+export const STORAGE_KEY = "blingkkami-ai-quote-employee:v8";
 
 export function loadData(): AppData {
   const raw = localStorage.getItem(STORAGE_KEY);

@@ -31,7 +31,11 @@ export function VendorManager({ data, setData }: { data: AppData; setData: React
       createdAt: now,
       updatedAt: now
     };
-    setData((prev) => ({ ...prev, purchases: [record, ...prev.purchases] }));
+    setData((prev) => ({
+      ...prev,
+      vendors: prev.vendors.map((vendor) => (vendor.id === vendorId ? { ...vendor, hasPurchaseTransaction: true, updatedAt: now } : vendor)),
+      purchases: [record, ...prev.purchases]
+    }));
   };
   return (
     <section className="panel">

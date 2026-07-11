@@ -112,11 +112,11 @@ const seedPurchases: PurchaseRecord[] = [
 ];
 
 export const defaultData: AppData = {
-  quotes: seedQuotes,
+  quotes: [],
   customers: seedCustomers,
   vendors: seedVendors,
-  sales: seedSales,
-  purchases: seedPurchases,
+  sales: [],
+  purchases: [],
   taxApiIntegration: {
     provider: "popbill",
     businessNumber: "",

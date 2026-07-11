@@ -20,12 +20,13 @@ import { SettingsView } from "./views/SettingsView";
 function App() {
   const [data, setData] = useState<AppData>(() => loadData());
   const [view, setView] = useState<View>("quote");
-  const [activeQuoteId, setActiveQuoteId] = useState(data.quotes[0]?.id ?? emptyQuote().id);
+  const [draftQuote, setDraftQuote] = useState<QuoteRecord>(() => emptyQuote());
+  const [activeQuoteId, setActiveQuoteId] = useState(data.quotes[0]?.id ?? "");
   const [query, setQuery] = useState("");
 
   useEffect(() => saveData(data), [data]);
 
-  const activeQuote = data.quotes.find((quote) => quote.id === activeQuoteId) ?? data.quotes[0] ?? emptyQuote();
+  const activeQuote = data.quotes.find((quote) => quote.id === activeQuoteId) ?? (view === "quote" ? draftQuote : data.quotes[0] ?? draftQuote);
 
   const totals = useMemo(() => {
     const sales = data.sales.reduce((sum, sale) => sum + sale.amount, 0);
@@ -51,7 +52,15 @@ function App() {
         ? prev.quotes.map((item) => (item.id === quote.id ? { ...quote, updatedAt: new Date().toISOString() } : item))
         : [{ ...quote, updatedAt: new Date().toISOString() }, ...prev.quotes]
     }));
+    setDraftQuote(quote);
     setActiveQuoteId(quote.id);
+  };
+
+  const createNewQuote = () => {
+    const quote = emptyQuote();
+    setDraftQuote(quote);
+    setActiveQuoteId(quote.id);
+    setView("quote");
   };
 
   const approveQuote = async (quote: QuoteRecord) => {
@@ -155,20 +164,29 @@ function App() {
 
   const recordPayment = (saleId: string, amount: number) => {
     if (!amount || amount < 1) return;
-    setData((prev) => ({
-      ...prev,
-      sales: prev.sales.map((sale) => {
+    setData((prev) => {
+      const sales = prev.sales.map((sale) => {
         if (sale.id !== saleId) return sale;
         const paidAmount = Math.min(sale.amount, sale.paidAmount + amount);
         return {
           ...sale,
           paidAmount,
-          paymentStatus: paidAmount >= sale.amount ? "paid" : "partial",
+          paymentStatus: paidAmount >= sale.amount ? "paid" as const : "partial" as const,
           payments: [...sale.payments, { date: new Date().toISOString().slice(0, 10), amount }],
           updatedAt: new Date().toISOString()
         };
-      })
-    }));
+      });
+      const customers = prev.customers.map((customer) => {
+        const customerSales = sales.filter((sale) => sale.customerId === customer.id);
+        return {
+          ...customer,
+          totalSales: customerSales.reduce((sum, sale) => sum + sale.amount, 0),
+          unpaidAmount: customerSales.reduce((sum, sale) => sum + Math.max(0, sale.amount - sale.paidAmount), 0),
+          updatedAt: new Date().toISOString()
+        };
+      });
+      return { ...prev, sales, customers };
+    });
   };
 
   const updateTaxApiIntegration = (taxApiIntegration: TaxApiIntegration) => {
@@ -234,12 +252,7 @@ function App() {
               <Printer size={17} /> PDF/인쇄
             </button>
             <button
-              onClick={() => {
-                const quote = emptyQuote();
-                setData((prev) => ({ ...prev, quotes: [quote, ...prev.quotes] }));
-                setActiveQuoteId(quote.id);
-                setView("quote");
-              }}
+              onClick={createNewQuote}
             >
               <Plus size={17} /> 새 견적
             </button>

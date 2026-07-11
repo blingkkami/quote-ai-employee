@@ -1,8 +1,8 @@
-export function TextArea({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+export function TextArea({ label, value, placeholder, onChange }: { label: string; value: string; placeholder?: string; onChange: (value: string) => void }) {
   return (
     <label>
       {label}
-      <textarea value={value} onChange={(event) => onChange(event.target.value)} />
+      <textarea value={value} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} />
     </label>
   );
 }
