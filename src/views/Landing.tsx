@@ -47,7 +47,7 @@ export function Landing({ onStart }: { onStart: () => void }) {
         </div>
 
         <button className="landing-cta" onClick={onStart}>시작하기</button>
-        <p className="landing-foot">데이터는 이 브라우저에만 저장됩니다. 무료로 사용할 수 있어요.</p>
+        <p className="landing-foot">데이터는 이 브라우저에만 저장됩니다.</p>
       </div>
     </section>
   );

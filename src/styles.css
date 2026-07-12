@@ -504,21 +504,21 @@ textarea {
   font-weight: 900;
   letter-spacing: 0.42em;
   margin-left: 0.2em;
-  color: rgb(59, 47, 125);
+  color: #4f6fae;
 }
 
 .qp-subtitle {
   margin: 6px 0 0;
   font-size: 14px;
   letter-spacing: 0.08em;
-  color: rgb(59, 47, 125);
+  color: #4f6fae;
 }
 
 .qp-header-divider {
   margin-top: 16px;
   height: 1px;
   width: 100%;
-  background: rgb(59, 47, 125);
+  background: #4f6fae;
 }
 
 .qp-section {
@@ -529,13 +529,13 @@ textarea {
   margin: 0 0 8px 4px;
   font-size: 16px;
   font-weight: 700;
-  color: rgb(59, 47, 125);
+  color: #4f6fae;
 }
 
 .qp-section-bar {
   height: 2px;
   width: 100%;
-  background: rgb(59, 47, 125);
+  background: #4f6fae;
   margin-bottom: 12px;
 }
 
@@ -555,8 +555,8 @@ textarea {
   width: 18%;
   text-align: center;
   font-weight: 700;
-  color: rgb(59, 47, 125);
-  background: rgb(243, 239, 248);
+  color: #4f6fae;
+  background: #eef3fb;
   padding: 10px 12px;
 }
 
@@ -581,7 +581,7 @@ textarea {
 }
 
 .qp-items-table thead th {
-  background: rgb(59, 47, 125);
+  background: #4f6fae;
   color: #ffffff;
   font-weight: 700;
   text-align: center;
@@ -613,18 +613,18 @@ textarea {
 }
 
 .qp-highlight-row {
-  background: rgb(233, 226, 244);
+  background: #dce6f6;
 }
 
 .qp-final-category {
   text-align: center;
   font-weight: 700;
-  color: rgb(59, 47, 125);
+  color: #4f6fae;
 }
 
 .qp-final-desc {
   font-weight: 700;
-  color: rgb(59, 47, 125);
+  color: #4f6fae;
 }
 
 .qp-final-amount {
@@ -635,7 +635,7 @@ textarea {
   display: block;
   font-size: 14px;
   font-weight: 700;
-  color: rgb(59, 47, 125);
+  color: #4f6fae;
 }
 
 .qp-final-vat {
@@ -665,7 +665,7 @@ textarea {
 
 .qp-message {
   border: 1px solid rgb(229, 229, 229);
-  background: rgb(248, 245, 252);
+  background: #f3f7fc;
   padding: 24px 40px;
   font-size: 12px;
   line-height: 1.9;
@@ -682,7 +682,7 @@ textarea {
 .qp-signoff-sender {
   font-size: 15px;
   font-weight: 700;
-  color: rgb(59, 47, 125);
+  color: #4f6fae;
 }
 
 .qp-signoff-date {
