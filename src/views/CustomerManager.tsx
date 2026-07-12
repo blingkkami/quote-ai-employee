@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, Trash2 } from "lucide-react";
 import type { AppData, Customer, InvoicePreference } from "../types";
 import { money } from "../lib/format";
 import { quoteTotal } from "../lib/quote-calc";
@@ -29,8 +29,8 @@ export function CustomerManager({ data, setData }: { data: AppData; setData: Rea
       contact: "",
       paymentCycle: "per_transaction",
       invoicePreference: "tax_invoice_auto",
-      firstQuoteAt: now.slice(0, 10),
-      lastQuoteAt: now.slice(0, 10),
+      firstQuoteAt: "",
+      lastQuoteAt: "",
       totalSales: 0,
       unpaidAmount: 0,
       createdAt: now,
@@ -49,6 +49,17 @@ export function CustomerManager({ data, setData }: { data: AppData; setData: Rea
         customer.id === id ? { ...customer, ...patch, updatedAt: new Date().toISOString() } : customer
       )
     }));
+  };
+  const deleteCustomer = (customer: Customer) => {
+    const hasHistory = data.quotes.some((quote) => quote.customerId === customer.id) || data.sales.some((sale) => sale.customerId === customer.id);
+    if (hasHistory) {
+      window.alert("견적 또는 매출 이력이 있는 고객은 삭제할 수 없습니다. 연결된 견적을 먼저 정리해 주세요.");
+      return;
+    }
+    if (!window.confirm(`'${customer.name}' 고객을 삭제할까요?`)) return;
+    const remaining = data.customers.filter((item) => item.id !== customer.id);
+    setData((prev) => ({ ...prev, customers: prev.customers.filter((item) => item.id !== customer.id) }));
+    setActiveCustomerId(remaining[0]?.id ?? "");
   };
   const stageFor = (customer: Customer) => {
     if (customer.unpaidAmount > 0) return "미수 관리";
@@ -100,6 +111,9 @@ export function CustomerManager({ data, setData }: { data: AppData; setData: Rea
               <Status tone={toneFor(activeCustomer)}>
                 {activeCustomer.unpaidAmount > 0 ? "수금 필요" : "정상"}
               </Status>
+              <button className="icon danger" aria-label="고객 삭제" title="고객 삭제" onClick={() => deleteCustomer(activeCustomer)}>
+                <Trash2 size={16} />
+              </button>
             </div>
             <div className="kpis mini">
               <div className="kpi"><span>누적 매출</span><strong>{money(activeCustomer.totalSales)}원</strong></div>

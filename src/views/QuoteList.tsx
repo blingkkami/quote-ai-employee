@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef } from "react";
-import { Search, X } from "lucide-react";
-import type { Customer, QuoteRecord, QuoteStatus } from "../types";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Copy, Search, Trash2, X } from "lucide-react";
+import type { Customer, PaymentStatus, QuoteRecord, QuoteStatus } from "../types";
 import { money } from "../lib/format";
 import { quoteTotal } from "../lib/quote-calc";
 import { payLabels, statusLabels } from "../constants";
@@ -13,7 +13,9 @@ export function QuoteList({
   query,
   setQuery,
   onOpen,
-  onChange
+  onChange,
+  onDelete,
+  onDuplicate
 }: {
   quotes: QuoteRecord[];
   customers: Customer[];
@@ -21,8 +23,14 @@ export function QuoteList({
   setQuery: (value: string) => void;
   onOpen: (id: string) => void;
   onChange: (quote: QuoteRecord) => void;
+  onDelete: (id: string) => void;
+  onDuplicate: (quote: QuoteRecord) => void;
 }) {
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const [statusFilter, setStatusFilter] = useState<QuoteStatus | "all">("all");
+  const [paymentFilter, setPaymentFilter] = useState<PaymentStatus | "all">("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
@@ -43,6 +51,10 @@ export function QuoteList({
   );
 
   const filtered = useMemo(() => quotes.filter((quote) => {
+    if (statusFilter !== "all" && quote.status !== statusFilter) return false;
+    if (paymentFilter !== "all" && quote.paymentStatus !== paymentFilter) return false;
+    if (dateFrom && quote.form.quoteDate && quote.form.quoteDate < dateFrom) return false;
+    if (dateTo && quote.form.quoteDate && quote.form.quoteDate > dateTo) return false;
     const customer = customers.find((item) => item.id === quote.customerId);
     const searchableText = [
       quote.id,
@@ -75,7 +87,7 @@ export function QuoteList({
       .toLocaleLowerCase();
 
     return searchTokens.every((token) => searchableText.includes(token));
-  }), [customers, quotes, searchTokens]);
+  }), [customers, dateFrom, dateTo, paymentFilter, quotes, searchTokens, statusFilter]);
 
   const clearSearch = () => {
     setQuery("");
@@ -100,13 +112,24 @@ export function QuoteList({
             </button>
           )}
         </div>
+        <select aria-label="견적 상태 필터" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as QuoteStatus | "all")}>
+          <option value="all">모든 견적 상태</option>
+          {Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+        </select>
+        <select aria-label="수금 상태 필터" value={paymentFilter} onChange={(event) => setPaymentFilter(event.target.value as PaymentStatus | "all")}>
+          <option value="all">모든 수금 상태</option>
+          {Object.entries(payLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+        </select>
+        <input aria-label="견적일 시작" type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} />
+        <input aria-label="견적일 종료" type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} />
         <span className="search-shortcut">{navigator.platform.includes("Mac") ? "⌘K" : "Ctrl K"}</span>
         <span className="search-count">{query ? `${filtered.length}건 / ${quotes.length}건` : `전체 ${quotes.length}건`}</span>
       </div>
       {filtered.length > 0 ? (
         <DataTable
-          headers={["프로젝트", "고객", "합계", "견적 상태", "수금 상태", "최근 수정", ""]}
+          headers={["견적일", "프로젝트", "고객", "합계", "견적 상태", "수금 상태", "최근 수정", ""]}
           rows={filtered.map((quote) => [
+            quote.form.quoteDate || "-",
             quote.form.projectName || "제목 없음",
             customers.find((item) => item.id === quote.customerId)?.name ?? "-",
             `${money(quoteTotal(quote))}원`,
@@ -123,6 +146,19 @@ export function QuoteList({
               </select>
               <button className="ghost" onClick={() => onOpen(quote.id)}>
                 열기
+              </button>
+              <button className="icon" title="견적 복제" aria-label="견적 복제" onClick={() => onDuplicate(quote)}>
+                <Copy size={15} />
+              </button>
+              <button
+                className="icon danger"
+                title="견적 삭제"
+                aria-label="견적 삭제"
+                onClick={() => {
+                  if (window.confirm(`'${quote.form.projectName || "제목 없음"}' 견적과 연결된 매출 기록을 삭제할까요?`)) onDelete(quote.id);
+                }}
+              >
+                <Trash2 size={15} />
               </button>
             </div>
           ])}

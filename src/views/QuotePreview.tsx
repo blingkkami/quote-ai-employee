@@ -52,8 +52,8 @@ export function QuotePreview({ quote, logo }: { quote: QuoteRecord; customer?: C
 
   const noteLines = form.notes.split("\n").map((line) => line.trim()).filter(Boolean);
 
-  const senderBase = form.signOffSender.trim();
-  const senderLine = senderBase.endsWith("드림") ? senderBase : `${senderBase} 드림`;
+  const senderBase = form.signOffSender.trim() || form.issuerName.trim();
+  const senderLine = senderBase ? (senderBase.endsWith("드림") ? senderBase : `${senderBase} 드림`) : "";
   const signDateSource = form.signOffDate || form.quoteDate || today();
   const signDate = koreanDate(signDateSource);
 

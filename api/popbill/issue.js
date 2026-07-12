@@ -72,13 +72,13 @@ export default async function handler(request, response) {
       return;
     }
 
-    // Mock mode when credentials are missing.
+    // Never report a successful issue when server credentials are missing.
     if (!hasCredentials) {
-      response.status(200).json({
-        ok: true,
-        mode: "mock",
+      response.status(503).json({
+        ok: false,
+        mode: "not_configured",
         invoiceStatus: "pending",
-        message: "팝빌 인증정보가 없어 실제 발행되지 않았습니다. 설정 후 다시 발행해 주세요. (모의 처리)",
+        message: "팝빌 서버 인증정보가 없어 실제 발행하지 않았습니다. Vercel 환경변수를 등록한 뒤 다시 시도해 주세요.",
         quoteId: body.quoteId
       });
       return;

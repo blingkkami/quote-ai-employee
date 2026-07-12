@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Plus, Printer } from "lucide-react";
-import type { AppData, QuoteRecord, TaxApiIntegration } from "./types";
+import type { AppData, QuoteRecord, SaleRecord, TaxApiIntegration } from "./types";
 import { emptyQuote } from "./data/quote-defaults";
 import { loadData, saveData } from "./lib/storage";
 import { quoteSubtotal, quoteTotal, quoteVat } from "./lib/quote-calc";
 import { uid } from "./lib/id";
 import { issueTaxInvoice } from "./lib/tax-invoice";
+import { syncCustomerTotals } from "./lib/finance";
 import { nav, View } from "./constants";
 import { QuoteBuilder } from "./views/QuoteBuilder";
 import { QuoteList } from "./views/QuoteList";
@@ -23,6 +24,8 @@ function App() {
   const [draftQuote, setDraftQuote] = useState<QuoteRecord>(() => emptyQuote());
   const [activeQuoteId, setActiveQuoteId] = useState(data.quotes[0]?.id ?? "");
   const [query, setQuery] = useState("");
+  const [approvingQuoteId, setApprovingQuoteId] = useState("");
+  const approvingIds = useRef(new Set<string>());
 
   useEffect(() => saveData(data), [data]);
 
@@ -64,12 +67,23 @@ function App() {
   };
 
   const approveQuote = async (quote: QuoteRecord) => {
+    if (approvingIds.current.has(quote.id)) return;
     const customerId = quote.customerId;
     if (!customerId) {
       window.alert("승인하려면 먼저 고객을 선택해 주세요.");
       return;
     }
     const amount = quoteTotal(quote);
+    if (!quote.form.projectName.trim()) {
+      window.alert("프로젝트명을 입력해 주세요.");
+      return;
+    }
+    if (amount < 1) {
+      window.alert("금액이 입력된 작업 항목을 한 개 이상 추가해 주세요.");
+      return;
+    }
+    approvingIds.current.add(quote.id);
+    setApprovingQuoteId(quote.id);
     const approved: QuoteRecord = {
       ...quote,
       customerId,
@@ -78,14 +92,24 @@ function App() {
       invoiceStatus: "pending",
       popbillInvoiceId: quote.popbillInvoiceId
     };
-    const sale = data.sales.find((record) => record.quoteId === quote.id);
-    setData((prev) => ({
-      ...prev,
-      quotes: prev.quotes.some((item) => item.id === quote.id)
+    setData((prev) => {
+      const quotes = prev.quotes.some((item) => item.id === quote.id)
         ? prev.quotes.map((item) => (item.id === quote.id ? approved : item))
-        : [approved, ...prev.quotes],
-      sales: sale
-        ? prev.sales.map((record) => (record.quoteId === quote.id ? { ...record, amount, updatedAt: new Date().toISOString() } : record))
+        : [approved, ...prev.quotes];
+      const existingSale = prev.sales.find((record) => record.quoteId === quote.id);
+      const sales: SaleRecord[] = existingSale
+        ? prev.sales.map((record) =>
+            record.quoteId === quote.id
+              ? {
+                  ...record,
+                  customerId,
+                  amount,
+                  paidAmount: Math.min(record.paidAmount, amount),
+                  paymentStatus: record.paidAmount >= amount ? "paid" : record.paidAmount > 0 ? "partial" : "unpaid",
+                  updatedAt: new Date().toISOString()
+                }
+              : record
+          )
         : [
             {
               id: uid("sale"),
@@ -99,23 +123,25 @@ function App() {
               updatedAt: new Date().toISOString()
             },
             ...prev.sales
-          ],
-      customers: prev.customers.map((customer) =>
-        customer.id === customerId
-          ? {
-              ...customer,
-              lastQuoteAt: new Date().toISOString().slice(0, 10),
-              totalSales: prev.sales.some((record) => record.quoteId === quote.id) ? customer.totalSales : customer.totalSales + amount,
-              unpaidAmount: prev.sales.some((record) => record.quoteId === quote.id) ? customer.unpaidAmount : customer.unpaidAmount + amount,
-              updatedAt: new Date().toISOString()
-            }
-          : customer
-      )
-    }));
+          ];
+      return { ...prev, quotes, sales, customers: syncCustomerTotals(prev.customers, sales, quotes) };
+    });
     setActiveQuoteId(quote.id);
     setView("issue");
 
-    if (quote.invoiceIssuanceMode !== "auto") return;
+    if (quote.invoiceIssuanceMode !== "auto" || !quote.invoiceType.issueInvoice) {
+      setData((prev) => ({
+        ...prev,
+        quotes: prev.quotes.map((item) =>
+          item.id === quote.id
+            ? { ...item, invoiceStatus: "pending", invoiceNote: quote.invoiceType.issueInvoice ? "수동 발행 대기 중입니다." : "세금계산서 발행 대상이 아닙니다." }
+            : item
+        )
+      }));
+      approvingIds.current.delete(quote.id);
+      setApprovingQuoteId("");
+      return;
+    }
 
     const customer = data.customers.find((item) => item.id === customerId);
 
@@ -125,6 +151,8 @@ function App() {
         ...prev,
         quotes: prev.quotes.map((item) => (item.id === quote.id ? { ...item, invoiceStatus: "failed", invoiceNote: "고객 사업자번호가 없어 발행할 수 없습니다." } : item))
       }));
+      approvingIds.current.delete(quote.id);
+      setApprovingQuoteId("");
       return;
     }
 
@@ -166,9 +194,11 @@ function App() {
         ? { ...prev.taxApiIntegration, lastIssuedAt: new Date().toISOString() }
         : prev.taxApiIntegration
     }));
+    approvingIds.current.delete(quote.id);
+    setApprovingQuoteId("");
   };
 
-  const recordPayment = (saleId: string, amount: number) => {
+  const recordPayment = (saleId: string, amount: number, date: string) => {
     if (!amount || amount < 1) return;
     setData((prev) => {
       const sales = prev.sales.map((sale) => {
@@ -178,21 +208,50 @@ function App() {
           ...sale,
           paidAmount,
           paymentStatus: paidAmount >= sale.amount ? "paid" as const : "partial" as const,
-          payments: [...sale.payments, { date: new Date().toISOString().slice(0, 10), amount }],
+          payments: [...sale.payments, { date: date || new Date().toISOString().slice(0, 10), amount: paidAmount - sale.paidAmount }],
           updatedAt: new Date().toISOString()
         };
       });
-      const customers = prev.customers.map((customer) => {
-        const customerSales = sales.filter((sale) => sale.customerId === customer.id);
-        return {
-          ...customer,
-          totalSales: customerSales.reduce((sum, sale) => sum + sale.amount, 0),
-          unpaidAmount: customerSales.reduce((sum, sale) => sum + Math.max(0, sale.amount - sale.paidAmount), 0),
-          updatedAt: new Date().toISOString()
-        };
-      });
-      return { ...prev, sales, customers };
+      const paidSale = sales.find((sale) => sale.id === saleId);
+      const quotes = paidSale
+        ? prev.quotes.map((quote) => quote.id === paidSale.quoteId ? { ...quote, paymentStatus: paidSale.paymentStatus } : quote)
+        : prev.quotes;
+      return { ...prev, sales, quotes, customers: syncCustomerTotals(prev.customers, sales, quotes) };
     });
+  };
+
+  const deleteQuote = (quoteId: string) => {
+    setData((prev) => {
+      const quotes = prev.quotes.filter((quote) => quote.id !== quoteId);
+      const sales = prev.sales.filter((sale) => sale.quoteId !== quoteId);
+      const purchases = prev.purchases.map((purchase) =>
+        purchase.relatedQuoteId === quoteId ? { ...purchase, relatedQuoteId: undefined } : purchase
+      );
+      return { ...prev, quotes, sales, purchases, customers: syncCustomerTotals(prev.customers, sales, quotes) };
+    });
+    if (activeQuoteId === quoteId) createNewQuote();
+  };
+
+  const duplicateQuote = (quote: QuoteRecord) => {
+    const now = new Date().toISOString();
+    const copy: QuoteRecord = {
+      ...quote,
+      id: uid("quo"),
+      status: "draft",
+      paymentStatus: "unpaid",
+      approvedAt: undefined,
+      invoiceDate: undefined,
+      invoiceStatus: "pending",
+      invoiceNote: undefined,
+      popbillInvoiceId: undefined,
+      form: { ...quote.form, projectName: `${quote.form.projectName || "견적"} 복사본` },
+      items: quote.items.map((item) => ({ ...item, id: uid("item") })),
+      createdAt: now,
+      updatedAt: now
+    };
+    setData((prev) => ({ ...prev, quotes: [copy, ...prev.quotes] }));
+    setActiveQuoteId(copy.id);
+    setView("quote");
   };
 
   const updateTaxApiIntegration = (taxApiIntegration: TaxApiIntegration) => {
@@ -202,15 +261,44 @@ function App() {
     }));
   };
 
-  const handlePrint = () => {
+  const handlePrint = async () => {
     const projectName = activeQuote.form.projectName.trim() || "견적서";
     const quoteDate = activeQuote.form.quoteDate || new Date().toISOString().slice(0, 10);
     const sanitize = (value: string) => value.replace(/[\\/:*?"<>|]/g, "-");
-    const previousTitle = document.title;
-    document.title = sanitize(`견적서_${projectName}_${quoteDate}`);
-    window.addEventListener("afterprint", () => (document.title = previousTitle), { once: true });
-    window.print();
-    setTimeout(() => (document.title = previousTitle), 0);
+    const paper = document.querySelector<HTMLElement>(".qp-paper");
+    if (!paper) {
+      window.alert("견적 생성 화면에서 PDF를 다운로드해 주세요.");
+      return;
+    }
+    const clone = paper.cloneNode(true) as HTMLElement;
+    clone.style.position = "fixed";
+    clone.style.left = "-10000px";
+    clone.style.top = "0";
+    clone.style.width = "794px";
+    clone.style.height = "auto";
+    clone.style.transform = "none";
+    clone.style.boxShadow = "none";
+    document.body.appendChild(clone);
+    try {
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import("html2canvas"), import("jspdf")]);
+      const canvas = await html2canvas(clone, { scale: 2, useCORS: true, backgroundColor: "#ffffff", logging: false });
+      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      const width = 210;
+      const height = (canvas.height * width) / canvas.width;
+      pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, width, Math.min(height, 297));
+      const url = URL.createObjectURL(pdf.output("blob"));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${sanitize(`견적서_${projectName}_${quoteDate}`)}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) {
+      window.alert(`PDF 생성에 실패했습니다. ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      clone.remove();
+    }
   };
 
   const exportCsv = () => {
@@ -266,7 +354,7 @@ function App() {
           </div>
           <div className="top-actions">
             <button className="ghost" onClick={handlePrint}>
-              <Printer size={17} /> PDF/인쇄
+              <Printer size={17} /> PDF 다운로드
             </button>
             <button
               onClick={createNewQuote}
@@ -283,6 +371,7 @@ function App() {
             onSave={updateQuote}
             onApprove={approveQuote}
             logo={data.logoDataUrl}
+            isApproving={approvingQuoteId === activeQuote.id}
             onLogoChange={(logoDataUrl?: string) => setData((prev) => ({ ...prev, logoDataUrl }))}
             onCustomerUpdate={(customer) =>
               setData((prev) => ({
@@ -303,9 +392,21 @@ function App() {
               setView("quote");
             }}
             onChange={updateQuote}
+            onDelete={deleteQuote}
+            onDuplicate={duplicateQuote}
           />
         )}
-        {view === "issue" && <IssueCenter quote={activeQuote} customers={data.customers} onApprove={approveQuote} onExportCsv={exportCsv} />}
+        {view === "issue" && (
+          <IssueCenter
+            quote={activeQuote}
+            quotes={data.quotes}
+            customers={data.customers}
+            onSelectQuote={setActiveQuoteId}
+            onApprove={approveQuote}
+            onExportCsv={exportCsv}
+            isApproving={approvingQuoteId === activeQuote.id}
+          />
+        )}
         {view === "customers" && <CustomerManager data={data} setData={setData} />}
         {view === "vendors" && <VendorManager data={data} setData={setData} />}
         {view === "ledger" && <Ledger data={data} onPayment={recordPayment} />}

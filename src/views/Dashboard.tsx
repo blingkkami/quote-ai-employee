@@ -17,11 +17,17 @@ type DashboardTotals = {
 export function Dashboard({ data, totals }: { data: AppData; totals: DashboardTotals }) {
   const [showGraph, setShowGraph] = useState(false);
   const [period, setPeriod] = useState<"month" | "year">("month");
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  });
+  const [selectedYear, setSelectedYear] = useState(() => String(new Date().getFullYear()));
+  const [detail, setDetail] = useState("sales");
   const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-  const periodKey = period === "month" ? monthKey(new Date()) : String(new Date().getFullYear());
+  const periodKey = period === "month" ? selectedMonth : selectedYear;
   const recordKey = (iso: string) => (period === "month" ? monthKey(new Date(iso)) : String(new Date(iso).getFullYear()));
   const periodSales = data.sales.filter((sale) => recordKey(sale.createdAt) === periodKey);
-  const periodPurchases = data.purchases.filter((purchase) => recordKey(purchase.createdAt) === periodKey);
+  const periodPurchases = data.purchases.filter((purchase) => recordKey(purchase.purchaseDate || purchase.createdAt) === periodKey);
   const periodTotals = {
     sales: periodSales.reduce((sum, sale) => sum + sale.amount, 0),
     paid: periodSales.reduce((sum, sale) => sum + sale.paidAmount, 0),
@@ -29,16 +35,17 @@ export function Dashboard({ data, totals }: { data: AppData; totals: DashboardTo
     overdueCustomers: new Set(periodSales.filter((sale) => sale.paymentStatus !== "paid").map((sale) => sale.customerId)).size
   };
   const cards = [
-    ["매출액", periodTotals.sales],
-    ["입금액", periodTotals.paid],
-    ["미수금", Math.max(0, periodTotals.sales - periodTotals.paid)],
-    ["지출액", periodTotals.purchase],
-    ["추정 이익", periodTotals.sales - periodTotals.purchase],
-    ["미수 업체", periodTotals.overdueCustomers]
+    ["sales", "매출액", periodTotals.sales],
+    ["paid", "입금액", periodTotals.paid],
+    ["unpaid", "미수금", Math.max(0, periodTotals.sales - periodTotals.paid)],
+    ["purchase", "지출액", periodTotals.purchase],
+    ["margin", "추정 이익", periodTotals.sales - periodTotals.purchase],
+    ["overdue", "미수 업체", periodTotals.overdueCustomers]
   ];
   const maxSales = Math.max(...periodSales.map((sale) => sale.amount), 1);
   const trend = useMemo(() => {
-    const current = new Date();
+    const [year, month] = selectedMonth.split("-").map(Number);
+    const current = new Date(year, month - 1, 1);
     return Array.from({ length: 6 }, (_, index) => {
       const date = new Date(current.getFullYear(), current.getMonth() - (5 - index), 1);
       const key = monthKey(date);
@@ -47,7 +54,7 @@ export function Dashboard({ data, totals }: { data: AppData; totals: DashboardTo
         value: data.sales.filter((sale) => monthKey(new Date(sale.createdAt)) === key).reduce((sum, sale) => sum + sale.amount, 0)
       };
     });
-  }, [data.sales]);
+  }, [data.sales, selectedMonth]);
   const graphItems = useMemo(
     () => [
       { label: "매출", value: periodTotals.sales, tone: "sales" },
@@ -59,6 +66,19 @@ export function Dashboard({ data, totals }: { data: AppData; totals: DashboardTo
     [periodTotals.paid, periodTotals.purchase, periodTotals.sales]
   );
   const maxGraphValue = Math.max(...graphItems.map((item) => Math.abs(item.value)), 1);
+  const availableYears = Array.from(new Set([
+    String(new Date().getFullYear()),
+    ...data.sales.map((sale) => String(new Date(sale.createdAt).getFullYear())),
+    ...data.purchases.map((purchase) => String(new Date(purchase.purchaseDate || purchase.createdAt).getFullYear()))
+  ])).sort().reverse();
+  const detailSales = detail === "unpaid" || detail === "overdue" ? periodSales.filter((sale) => sale.paymentStatus !== "paid") : periodSales;
+  const categoryRows = Object.entries(
+    data.quotes.flatMap((quote) => quote.items).reduce<Record<string, { count: number; sales: number }>>((acc, item) => {
+      const key = item.category || "미분류";
+      acc[key] = { count: (acc[key]?.count ?? 0) + 1, sales: (acc[key]?.sales ?? 0) + item.price };
+      return acc;
+    }, {})
+  ).sort((a, b) => b[1].sales - a[1].sales).slice(0, 8);
 
   return (
     <section className="dashboard">
@@ -71,16 +91,43 @@ export function Dashboard({ data, totals }: { data: AppData; totals: DashboardTo
           <button className={showGraph ? "ghost" : ""} onClick={() => setShowGraph((value) => !value)}>
             {showGraph ? "요약 보기" : "그래프 보기"}
           </button>
+          {period === "month" ? (
+            <input aria-label="대시보드 조회 월" type="month" value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)} />
+          ) : (
+            <select aria-label="대시보드 조회 연도" value={selectedYear} onChange={(event) => setSelectedYear(event.target.value)}>
+              {availableYears.map((year) => <option key={year} value={year}>{year}년</option>)}
+            </select>
+          )}
         </div>
       </div>
 
       <div className="kpis">
-        {cards.map(([label, value]) => (
-          <div className="kpi" key={label}>
+        {cards.map(([key, label, value]) => (
+          <button className={`kpi ${detail === key ? "active" : ""}`} key={key} onClick={() => setDetail(String(key))}>
             <span>{label}</span>
             <strong>{typeof value === "number" && label !== "미수 업체" ? `${money(value)}원` : value}</strong>
-          </div>
+          </button>
         ))}
+      </div>
+
+      <div className="panel dashboard-detail">
+        <SectionTitle title={`${cards.find(([key]) => key === detail)?.[1] ?? "매출"} 상세`} hint="선택한 기간의 실제 원장 기록입니다." />
+        {detail === "purchase" || detail === "margin" ? (
+          <DataTable headers={["매입일", "매입처", "내용", "매입액", "지급액"]} rows={periodPurchases.map((purchase) => [
+            purchase.purchaseDate || purchase.createdAt.slice(0, 10),
+            data.vendors.find((vendor) => vendor.id === purchase.vendorId)?.name ?? "-",
+            purchase.items.map((item) => item.description).join(", "),
+            `${money(purchase.totalAmount)}원`,
+            `${money(purchase.payments.reduce((sum, payment) => sum + payment.amount, 0))}원`
+          ])} />
+        ) : (
+          <DataTable headers={["승인일", "고객", "프로젝트", "매출", "입금", "미수"]} rows={detailSales.map((sale) => [
+            sale.createdAt.slice(0, 10),
+            data.customers.find((customer) => customer.id === sale.customerId)?.name ?? "-",
+            data.quotes.find((quote) => quote.id === sale.quoteId)?.form.projectName ?? "-",
+            `${money(sale.amount)}원`, `${money(sale.paidAmount)}원`, `${money(sale.amount - sale.paidAmount)}원`
+          ])} />
+        )}
       </div>
 
       {showGraph ? (
@@ -135,6 +182,10 @@ export function Dashboard({ data, totals }: { data: AppData; totals: DashboardTo
               headers={["고객", "누적 매출", "미수금"]}
               rows={data.customers.map((customer) => [customer.name, `${money(customer.totalSales)}원`, `${money(customer.unpaidAmount)}원`])}
             />
+          </div>
+          <div className="panel">
+            <SectionTitle title="품목 요약" hint="견적에 가장 많이 포함된 품목과 누적 금액" />
+            <DataTable headers={["품목", "횟수", "누적 견적액"]} rows={categoryRows.map(([category, value]) => [category, `${value.count}회`, `${money(value.sales)}원`])} />
           </div>
         </div>
       )}

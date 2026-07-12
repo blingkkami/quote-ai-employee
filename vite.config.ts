@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react";
 
 const apiHandlers: Record<string, string> = {
   "/api/popbill/issue": "./api/popbill/issue.js",
+  "/api/popbill/status": "./api/popbill/status.js",
   "/api/popbill/webhook": "./api/popbill/webhook.js"
 };
 

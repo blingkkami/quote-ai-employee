@@ -58,6 +58,22 @@ button:disabled {
   border: 1px solid #d9e1ec;
 }
 
+.icon.danger {
+  color: #c2413b;
+  border-color: #f0d3d1;
+  background: #fffafa;
+}
+
+.danger-alert {
+  color: #a73732;
+  border-color: #f0c8c5;
+  background: #fff4f3;
+}
+
+.muted {
+  color: #8492a6;
+}
+
 .link {
   min-height: 0;
   padding: 0;
@@ -616,6 +632,14 @@ th {
   white-space: nowrap;
 }
 
+.toolbar > select,
+.toolbar > input[type="date"],
+.filter-bar > select,
+.filter-bar > input[type="date"] {
+  width: auto;
+  min-width: 138px;
+}
+
 .search-shortcut {
   margin-left: -2px;
   padding: 3px 6px;
@@ -866,6 +890,80 @@ th {
   font-weight: 700;
 }
 
+.ledger-page,
+.vendor-page,
+.issue-page {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 20px 24px;
+  height: calc(100vh - 62px);
+  overflow: auto;
+}
+
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.ledger-kpis {
+  margin-top: 12px;
+}
+
+.payment-entry {
+  border-left: 4px solid #4f6fae;
+}
+
+.payment-grid {
+  grid-template-columns: 180px 220px minmax(220px, 1fr);
+  align-items: end;
+}
+
+.history-line {
+  display: block;
+  line-height: 1.55;
+  color: #475569;
+}
+
+.vendor-head {
+  justify-content: space-between;
+}
+
+.selected-row td {
+  background: #f3f7fc;
+}
+
+.purchase-form {
+  display: grid;
+  grid-template-columns: 150px 220px 150px minmax(220px, 1fr) 150px auto;
+  gap: 8px;
+  align-items: end;
+}
+
+.issue-card {
+  display: grid;
+  gap: 16px;
+  width: min(100%, 780px);
+}
+
+.env-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.env-list code {
+  padding: 5px 8px;
+  border: 1px solid #dce4ee;
+  border-radius: 5px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 11px;
+}
+
 .code {
   white-space: pre-wrap;
   background: #0f172a;
@@ -947,6 +1045,19 @@ th {
   padding: 12px;
   display: grid;
   gap: 7px;
+  color: #0f172a;
+  text-align: left;
+  justify-content: stretch;
+}
+
+button.kpi.active {
+  border-color: #4f6fae;
+  box-shadow: 0 0 0 3px rgba(79, 111, 174, 0.12);
+}
+
+.dashboard-detail {
+  display: grid;
+  gap: 12px;
 }
 
 .kpi span {
@@ -1048,7 +1159,9 @@ th {
   .split,
   .grid.two,
   .crm,
-  .kpis {
+  .kpis,
+  .payment-grid,
+  .purchase-form {
     grid-template-columns: 1fr;
   }
 

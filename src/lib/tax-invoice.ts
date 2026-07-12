@@ -27,7 +27,7 @@ export type IssueTaxInvoicePayload = {
 export type IssueTaxInvoiceResult = {
   ok: boolean;
   mode?: string;
-  invoiceStatus: "issued" | "failed";
+  invoiceStatus: "pending" | "issued" | "failed";
   popbillInvoiceId?: string;
   message?: string;
 };
@@ -45,7 +45,7 @@ export async function issueTaxInvoice(payload: IssueTaxInvoicePayload): Promise<
     if (!response.ok) {
       return {
         ok: false,
-        invoiceStatus: "failed",
+        invoiceStatus: result?.invoiceStatus === "pending" ? "pending" : "failed",
         message: result?.message || `발행 요청 실패 (HTTP ${response.status})`
       };
     }

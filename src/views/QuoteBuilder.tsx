@@ -15,7 +15,8 @@ export function QuoteBuilder({
   onApprove,
   onCustomerUpdate,
   logo,
-  onLogoChange
+  onLogoChange,
+  isApproving
 }: {
   quote: QuoteRecord;
   customers: Customer[];
@@ -24,15 +25,39 @@ export function QuoteBuilder({
   onCustomerUpdate: (customer: Customer) => void;
   logo?: string;
   onLogoChange: (logoDataUrl?: string) => void;
+  isApproving: boolean;
 }) {
   const [draft, setDraft] = useState(quote);
   const logoInputRef = useRef<HTMLInputElement>(null);
-  useEffect(() => setDraft(quote), [quote.id]);
+  const latestDraftRef = useRef(quote);
+  const lastSavedRef = useRef(JSON.stringify(quote));
+  const onSaveRef = useRef(onSave);
+
   useEffect(() => {
-    if (draft === quote) return;
-    const timer = setTimeout(() => onSave(draft), 600);
+    onSaveRef.current = onSave;
+  }, [onSave]);
+  useEffect(() => {
+    setDraft(quote);
+    latestDraftRef.current = quote;
+    lastSavedRef.current = JSON.stringify(quote);
+  }, [quote.id]);
+  useEffect(() => {
+    latestDraftRef.current = draft;
+    const serialized = JSON.stringify(draft);
+    if (serialized === lastSavedRef.current) return;
+    const timer = setTimeout(() => {
+      onSaveRef.current(draft);
+      lastSavedRef.current = serialized;
+    }, 600);
     return () => clearTimeout(timer);
   }, [draft]);
+  useEffect(
+    () => () => {
+      const serialized = JSON.stringify(latestDraftRef.current);
+      if (serialized !== lastSavedRef.current) onSaveRef.current(latestDraftRef.current);
+    },
+    []
+  );
 
   const customer = customers.find((item) => item.id === draft.customerId);
 
@@ -152,6 +177,10 @@ export function QuoteBuilder({
         </div>
         <TextArea label="유의사항" value={draft.form.notes} placeholder="수정 횟수, 추가 비용, 납품 조건" onChange={(value) => setForm("notes", value)} />
         <TextArea label="전달 메시지" value={draft.form.message} placeholder="고객에게 전달할 말씀" onChange={(value) => setForm("message", value)} />
+        <div className="grid two">
+          <Input label="마무리 문구" value={draft.form.signOffSender} placeholder="블링까미 스튜디오 드림" onChange={(value) => setForm("signOffSender", value)} />
+          <Input label="마무리 날짜" type="date" value={draft.form.signOffDate} onChange={(value) => setForm("signOffDate", value)} />
+        </div>
 
         <SectionTitle title="발행·정산 옵션" hint="자동 발행은 Popbill 연동 지점까지 상태를 추적합니다." />
         <div className="segmented">
@@ -175,8 +204,8 @@ export function QuoteBuilder({
           <button className="ghost" onClick={() => onSave(draft)}>
             <Save size={17} /> 저장
           </button>
-          <button onClick={() => onApprove(draft)}>
-            <CheckCircle2 size={17} /> 승인·발행
+          <button disabled={isApproving} onClick={() => onApprove(draft)}>
+            <CheckCircle2 size={17} /> {isApproving ? "처리 중" : "승인·발행"}
           </button>
         </div>
       </div>

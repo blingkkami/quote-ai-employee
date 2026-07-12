@@ -105,6 +105,7 @@ export type PurchaseRecord = {
   id: string;
   vendorId: string;
   relatedQuoteId?: string;
+  purchaseDate?: string;
   items: { category: string; description: string; price: number }[];
   totalAmount: number;
   paymentStatus: PaymentStatus;
