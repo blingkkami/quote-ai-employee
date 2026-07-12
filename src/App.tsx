@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Printer } from "lucide-react";
+import { Info, Plus, Printer } from "lucide-react";
 import type { AppData, QuoteRecord, SaleRecord, TaxApiIntegration } from "./types";
 import { emptyQuote } from "./data/quote-defaults";
 import { loadData, saveData } from "./lib/storage";
@@ -17,6 +17,7 @@ import { Ledger } from "./views/Ledger";
 import { ItemInsights } from "./views/ItemInsights";
 import { Dashboard } from "./views/Dashboard";
 import { SettingsView } from "./views/SettingsView";
+import { Landing } from "./views/Landing";
 
 function App() {
   const [data, setData] = useState<AppData>(() => loadData());
@@ -25,6 +26,13 @@ function App() {
   const [activeQuoteId, setActiveQuoteId] = useState(data.quotes[0]?.id ?? "");
   const [query, setQuery] = useState("");
   const [approvingQuoteId, setApprovingQuoteId] = useState("");
+  const [showLanding, setShowLanding] = useState(() => {
+    try {
+      return !localStorage.getItem("blingbill_landing_seen");
+    } catch {
+      return false;
+    }
+  });
   const approvingIds = useRef(new Set<string>());
 
   useEffect(() => saveData(data), [data]);
@@ -323,14 +331,29 @@ function App() {
     URL.revokeObjectURL(link.href);
   };
 
+  if (showLanding) {
+    return (
+      <Landing
+        onStart={() => {
+          try {
+            localStorage.setItem("blingbill_landing_seen", "1");
+          } catch {
+            // ignore storage errors
+          }
+          setShowLanding(false);
+        }}
+      />
+    );
+  }
+
   return (
     <div className="app">
       <aside className="sidebar">
         <div className="brand">
-          <span className="brand-mark">BQ</span>
+          <span className="brand-mark">BB</span>
           <div>
-            <strong>블링까미</strong>
-            <small>AI Quote Employee</small>
+            <strong>블링빌</strong>
+            <small>견적서·세금계산서 발행</small>
           </div>
         </div>
         <nav>
@@ -344,12 +367,15 @@ function App() {
             );
           })}
         </nav>
+        <button className="link sidebar-about" onClick={() => setShowLanding(true)}>
+          <Info size={14} /> 앱 소개
+        </button>
       </aside>
 
       <main>
         <header className="topbar">
           <div>
-            <p>v7 운영 워크플로우</p>
+            <p>블링빌</p>
             <h1>{nav.find((item) => item.id === view)?.label}</h1>
           </div>
           <div className="top-actions">
