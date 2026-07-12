@@ -378,16 +378,18 @@ function App() {
             <p>블링빌</p>
             <h1>{nav.find((item) => item.id === view)?.label}</h1>
           </div>
-          <div className="top-actions">
-            <button className="ghost" onClick={handlePrint}>
-              <Printer size={17} /> PDF 다운로드
-            </button>
-            <button
-              onClick={createNewQuote}
-            >
-              <Plus size={17} /> 새 견적
-            </button>
-          </div>
+          {view === "quote" && (
+            <div className="top-actions">
+              <button className="ghost" onClick={handlePrint}>
+                <Printer size={17} /> PDF 다운로드
+              </button>
+              <button
+                onClick={createNewQuote}
+              >
+                <Plus size={17} /> 새 견적
+              </button>
+            </div>
+          )}
         </header>
 
         {view === "quote" && (
