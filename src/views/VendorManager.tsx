@@ -5,7 +5,6 @@ import { uid } from "../lib/id";
 import { money } from "../lib/format";
 import { today } from "../lib/date";
 import { payLabels } from "../constants";
-import { Editable } from "../components/Editable";
 import { Status } from "../components/Status";
 import { SectionTitle } from "../components/SectionTitle";
 
@@ -19,16 +18,53 @@ export function VendorManager({ data, setData }: { data: AppData; setData: React
   const [payingPurchaseId, setPayingPurchaseId] = useState("");
   const [paymentDate, setPaymentDate] = useState(today());
   const [paymentAmount, setPaymentAmount] = useState("");
+  const [vendorFormOpen, setVendorFormOpen] = useState(false);
+  const [editingVendorId, setEditingVendorId] = useState<string | null>(null);
+  const [vendorName, setVendorName] = useState("");
+  const [vendorBusinessNumber, setVendorBusinessNumber] = useState("");
+  const [vendorContactPerson, setVendorContactPerson] = useState("");
+  const [vendorContact, setVendorContact] = useState("");
+  const [purchaseFormOpen, setPurchaseFormOpen] = useState(false);
 
   const activeVendor = data.vendors.find((vendor) => vendor.id === activeVendorId) ?? data.vendors[0];
   const purchases = data.purchases.filter((purchase) => purchase.vendorId === activeVendor?.id);
   const payingPurchase = data.purchases.find((purchase) => purchase.id === payingPurchaseId);
 
-  const addVendor = () => {
-    const now = new Date().toISOString();
-    const vendor: Vendor = { id: uid("ven"), name: "신규 매입처", hasPurchaseTransaction: false, createdAt: now, updatedAt: now };
-    setData((prev) => ({ ...prev, vendors: [vendor, ...prev.vendors] }));
-    setActiveVendorId(vendor.id);
+  const openCreateVendor = () => {
+    setEditingVendorId(null);
+    setVendorName("");
+    setVendorBusinessNumber("");
+    setVendorContactPerson("");
+    setVendorContact("");
+    setVendorFormOpen(true);
+  };
+
+  const openEditVendor = (vendor: Vendor) => {
+    setEditingVendorId(vendor.id);
+    setVendorName(vendor.name);
+    setVendorBusinessNumber(vendor.businessNumber ?? "");
+    setVendorContactPerson(vendor.contactPerson ?? "");
+    setVendorContact(vendor.contact ?? "");
+    setVendorFormOpen(true);
+  };
+
+  const saveVendor = () => {
+    if (!vendorName.trim()) return;
+    const patch = {
+      name: vendorName.trim(),
+      businessNumber: vendorBusinessNumber.trim() || undefined,
+      contactPerson: vendorContactPerson.trim() || undefined,
+      contact: vendorContact.trim() || undefined
+    };
+    if (editingVendorId) {
+      patchVendor(editingVendorId, patch);
+    } else {
+      const now = new Date().toISOString();
+      const vendor: Vendor = { id: uid("ven"), ...patch, hasPurchaseTransaction: false, createdAt: now, updatedAt: now };
+      setData((prev) => ({ ...prev, vendors: [vendor, ...prev.vendors] }));
+      setActiveVendorId(vendor.id);
+    }
+    setVendorFormOpen(false);
   };
 
   const patchVendor = (id: string, patch: Partial<Vendor>) => {
@@ -74,6 +110,7 @@ export function VendorManager({ data, setData }: { data: AppData; setData: React
     setDescription("");
     setAmount("");
     setRelatedQuoteId("");
+    setPurchaseFormOpen(false);
   };
 
   const deletePurchase = (purchase: PurchaseRecord) => {
@@ -121,7 +158,7 @@ export function VendorManager({ data, setData }: { data: AppData; setData: React
       <div className="panel">
         <div className="toolbar vendor-head">
           <SectionTitle title="매입처" hint="외주·인쇄·제작비 거래처와 실제 매입 기록을 함께 관리합니다." />
-          <button onClick={addVendor}><Plus size={17} /> 매입처 추가</button>
+          <button onClick={openCreateVendor}><Plus size={17} /> 매입처 추가</button>
         </div>
         <div className="table-wrap">
           <table>
@@ -130,11 +167,11 @@ export function VendorManager({ data, setData }: { data: AppData; setData: React
               {data.vendors.map((vendor) => (
                 <tr key={vendor.id} className={vendor.id === activeVendor?.id ? "selected-row" : ""}>
                   <td><button className="link" onClick={() => setActiveVendorId(vendor.id)}>{vendor.name}</button></td>
-                  <td><Editable value={vendor.businessNumber ?? ""} onChange={(value) => patchVendor(vendor.id, { businessNumber: value })} /></td>
-                  <td><Editable value={vendor.contactPerson ?? ""} onChange={(value) => patchVendor(vendor.id, { contactPerson: value })} /></td>
-                  <td><Editable value={vendor.contact ?? ""} onChange={(value) => patchVendor(vendor.id, { contact: value })} /></td>
+                  <td>{vendor.businessNumber || "-"}</td>
+                  <td>{vendor.contactPerson || "-"}</td>
+                  <td>{vendor.contact || "-"}</td>
                   <td>{data.purchases.filter((purchase) => purchase.vendorId === vendor.id).length}건</td>
-                  <td><button className="icon danger" aria-label="매입처 삭제" title="매입처 삭제" onClick={() => deleteVendor(vendor)}><Trash2 size={15} /></button></td>
+                  <td><div className="row-actions"><button className="ghost" onClick={() => openEditVendor(vendor)}>수정</button><button className="icon danger" aria-label="매입처 삭제" title="매입처 삭제" onClick={() => deleteVendor(vendor)}><Trash2 size={15} /></button></div></td>
                 </tr>
               ))}
             </tbody>
@@ -142,10 +179,30 @@ export function VendorManager({ data, setData }: { data: AppData; setData: React
         </div>
       </div>
 
+      {vendorFormOpen && (
+        <div className="panel">
+          <SectionTitle title={editingVendorId ? "매입처 수정" : "새 매입처"} />
+          <div className="grid two">
+            <label>매입처명<input placeholder="매입처명을 입력하세요" value={vendorName} onChange={(event) => setVendorName(event.target.value)} /></label>
+            <label>사업자번호<input value={vendorBusinessNumber} onChange={(event) => setVendorBusinessNumber(event.target.value)} /></label>
+            <label>담당자<input value={vendorContactPerson} onChange={(event) => setVendorContactPerson(event.target.value)} /></label>
+            <label>연락처<input value={vendorContact} onChange={(event) => setVendorContact(event.target.value)} /></label>
+          </div>
+          <div className="actions">
+            <button disabled={!vendorName.trim()} onClick={saveVendor}>저장</button>
+            <button className="ghost" onClick={() => setVendorFormOpen(false)}>취소</button>
+          </div>
+        </div>
+      )}
+
       {activeVendor && (
         <>
+          {purchaseFormOpen && (
           <div className="panel purchase-entry">
-            <SectionTitle title={`${activeVendor.name} 매입 입력`} hint="견적과 연결하면 품목·수익 분석에 함께 반영됩니다." />
+            <div className="toolbar">
+              <SectionTitle title={`${activeVendor.name} 매입 입력`} hint="견적과 연결하면 품목·수익 분석에 함께 반영됩니다." />
+              <button className="ghost" onClick={() => setPurchaseFormOpen(false)}>취소</button>
+            </div>
             <div className="purchase-form">
               <label>매입일<input type="date" value={purchaseDate} onChange={(event) => setPurchaseDate(event.target.value)} /></label>
               <label>연결 견적<select value={relatedQuoteId} onChange={(event) => setRelatedQuoteId(event.target.value)}><option value="">연결 안 함</option>{data.quotes.map((quote) => <option key={quote.id} value={quote.id}>{quote.form.projectName || quote.id}</option>)}</select></label>
@@ -155,6 +212,7 @@ export function VendorManager({ data, setData }: { data: AppData; setData: React
               <button disabled={!description.trim() || Number(amount) < 1} onClick={addPurchase}><Plus size={16} /> 매입 저장</button>
             </div>
           </div>
+          )}
 
           {payingPurchase && (
             <div className="panel payment-entry">
@@ -168,6 +226,10 @@ export function VendorManager({ data, setData }: { data: AppData; setData: React
           )}
 
           <div className="panel">
+            <div className="toolbar vendor-head">
+              <SectionTitle title={`${activeVendor.name} 매입 내역`} hint="견적과 연결하면 품목·수익 분석에 함께 반영됩니다." />
+              <button onClick={() => setPurchaseFormOpen(true)}><Plus size={17} /> 매입 입력</button>
+            </div>
             <div className="table-wrap">
               <table>
                 <thead><tr><th>매입일</th><th>연결 견적</th><th>구분</th><th>내용</th><th>매입액</th><th>지급액</th><th>미지급</th><th>상태</th><th></th></tr></thead>

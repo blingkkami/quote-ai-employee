@@ -13,6 +13,7 @@ import { Status } from "../components/Status";
 export function CustomerManager({ data, setData }: { data: AppData; setData: React.Dispatch<React.SetStateAction<AppData>> }) {
   const [activeCustomerId, setActiveCustomerId] = useState(data.customers[0]?.id ?? "");
   const [customerSearch, setCustomerSearch] = useState("");
+  const [editMode, setEditMode] = useState(false);
   const activeCustomer = data.customers.find((customer) => customer.id === activeCustomerId) ?? data.customers[0];
   const customerQuotes = data.quotes.filter((quote) => quote.customerId === activeCustomer?.id);
   const customerSales = data.sales.filter((sale) => sale.customerId === activeCustomer?.id);
@@ -41,6 +42,7 @@ export function CustomerManager({ data, setData }: { data: AppData; setData: Rea
       customers: [customer, ...prev.customers]
     }));
     setActiveCustomerId(customer.id);
+    setEditMode(true);
   };
   const patchCustomer = (id: string, patch: Partial<Customer>) => {
     setData((prev) => ({
@@ -84,7 +86,7 @@ export function CustomerManager({ data, setData }: { data: AppData; setData: Rea
           {filteredCustomers.map((customer) => {
             const quoteCount = data.quotes.filter((quote) => quote.customerId === customer.id).length;
             return (
-              <button key={customer.id} className={`crm-card ${activeCustomer?.id === customer.id ? "active" : ""}`} onClick={() => setActiveCustomerId(customer.id)}>
+              <button key={customer.id} className={`crm-card ${activeCustomer?.id === customer.id ? "active" : ""}`} onClick={() => { setActiveCustomerId(customer.id); setEditMode(false); }}>
                 <span className="crm-card-head">
                   <strong>{customer.name}</strong>
                   <Status tone={toneFor(customer)}>{stageFor(customer)}</Status>
@@ -111,6 +113,9 @@ export function CustomerManager({ data, setData }: { data: AppData; setData: Rea
               <Status tone={toneFor(activeCustomer)}>
                 {activeCustomer.unpaidAmount > 0 ? "수금 필요" : "정상"}
               </Status>
+              <button className={editMode ? "" : "ghost"} onClick={() => setEditMode((prev) => !prev)}>
+                {editMode ? "완료" : "수정"}
+              </button>
               <button className="icon danger" aria-label="고객 삭제" title="고객 삭제" onClick={() => deleteCustomer(activeCustomer)}>
                 <Trash2 size={16} />
               </button>
@@ -120,31 +125,47 @@ export function CustomerManager({ data, setData }: { data: AppData; setData: Rea
               <div className="kpi"><span>미수금</span><strong>{money(activeCustomer.unpaidAmount)}원</strong></div>
               <div className="kpi"><span>견적 수</span><strong>{customerQuotes.length}건</strong></div>
             </div>
-            <div className="grid two">
-              <Input label="고객명" value={activeCustomer.name} onChange={(value) => patchCustomer(activeCustomer.id, { name: value })} />
-              <Input label="사업자번호" value={activeCustomer.businessNumber ?? ""} onChange={(value) => patchCustomer(activeCustomer.id, { businessNumber: value })} />
-              <Input label="대표자" value={activeCustomer.representativeName ?? ""} onChange={(value) => patchCustomer(activeCustomer.id, { representativeName: value })} />
-              <Input label="담당자" value={activeCustomer.contactPerson} onChange={(value) => patchCustomer(activeCustomer.id, { contactPerson: value })} />
-              <Input label="연락처" value={activeCustomer.contact} onChange={(value) => patchCustomer(activeCustomer.id, { contact: value })} />
-              <Input label="이메일" value={activeCustomer.email ?? ""} onChange={(value) => patchCustomer(activeCustomer.id, { email: value })} />
-            </div>
-            <Input label="주소" value={activeCustomer.address ?? ""} onChange={(value) => patchCustomer(activeCustomer.id, { address: value })} />
-            <div className="grid two">
-              <label>
-                결제 주기
-                <select value={activeCustomer.paymentCycle} onChange={(event) => patchCustomer(activeCustomer.id, { paymentCycle: event.target.value as Customer["paymentCycle"] })}>
-                  <option value="per_transaction">건별 정산</option>
-                  <option value="monthly_batch">월말 정산</option>
-                </select>
-              </label>
-              <label>
-                기본 발행 방식
-                <select value={activeCustomer.invoicePreference} onChange={(event) => patchCustomer(activeCustomer.id, { invoicePreference: event.target.value as InvoicePreference })}>
-                  {Object.entries(invoiceLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                </select>
-              </label>
-            </div>
-            <TextArea label="CRM 메모" value={activeCustomer.memo ?? ""} onChange={(value) => patchCustomer(activeCustomer.id, { memo: value })} />
+            {editMode ? (
+              <>
+                <div className="grid two">
+                  <Input label="고객명" value={activeCustomer.name} onChange={(value) => patchCustomer(activeCustomer.id, { name: value })} />
+                  <Input label="사업자번호" value={activeCustomer.businessNumber ?? ""} onChange={(value) => patchCustomer(activeCustomer.id, { businessNumber: value })} />
+                  <Input label="대표자" value={activeCustomer.representativeName ?? ""} onChange={(value) => patchCustomer(activeCustomer.id, { representativeName: value })} />
+                  <Input label="담당자" value={activeCustomer.contactPerson} onChange={(value) => patchCustomer(activeCustomer.id, { contactPerson: value })} />
+                  <Input label="연락처" value={activeCustomer.contact} onChange={(value) => patchCustomer(activeCustomer.id, { contact: value })} />
+                  <Input label="이메일" value={activeCustomer.email ?? ""} onChange={(value) => patchCustomer(activeCustomer.id, { email: value })} />
+                </div>
+                <Input label="주소" value={activeCustomer.address ?? ""} onChange={(value) => patchCustomer(activeCustomer.id, { address: value })} />
+                <div className="grid two">
+                  <label>
+                    결제 주기
+                    <select value={activeCustomer.paymentCycle} onChange={(event) => patchCustomer(activeCustomer.id, { paymentCycle: event.target.value as Customer["paymentCycle"] })}>
+                      <option value="per_transaction">건별 정산</option>
+                      <option value="monthly_batch">월말 정산</option>
+                    </select>
+                  </label>
+                  <label>
+                    기본 발행 방식
+                    <select value={activeCustomer.invoicePreference} onChange={(event) => patchCustomer(activeCustomer.id, { invoicePreference: event.target.value as InvoicePreference })}>
+                      {Object.entries(invoiceLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                    </select>
+                  </label>
+                </div>
+                <TextArea label="CRM 메모" value={activeCustomer.memo ?? ""} onChange={(value) => patchCustomer(activeCustomer.id, { memo: value })} />
+              </>
+            ) : (
+              <dl className="details">
+                <dt>사업자번호</dt><dd>{activeCustomer.businessNumber || "-"}</dd>
+                <dt>대표자</dt><dd>{activeCustomer.representativeName || "-"}</dd>
+                <dt>담당자</dt><dd>{activeCustomer.contactPerson || "-"}</dd>
+                <dt>연락처</dt><dd>{activeCustomer.contact || "-"}</dd>
+                <dt>이메일</dt><dd>{activeCustomer.email || "-"}</dd>
+                <dt>주소</dt><dd>{activeCustomer.address || "-"}</dd>
+                <dt>결제 주기</dt><dd>{activeCustomer.paymentCycle === "monthly_batch" ? "월말 정산" : "건별 정산"}</dd>
+                <dt>기본 발행 방식</dt><dd>{invoiceLabels[activeCustomer.invoicePreference]}</dd>
+                <dt>CRM 메모</dt><dd>{activeCustomer.memo || "-"}</dd>
+              </dl>
+            )}
           </div>
           <div className="panel">
             <SectionTitle title="거래 타임라인" hint="견적, 승인, 수금 이력이 고객별로 모입니다." />
