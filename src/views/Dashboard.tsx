@@ -15,7 +15,6 @@ type DashboardTotals = {
 };
 
 export function Dashboard({ data, totals }: { data: AppData; totals: DashboardTotals }) {
-  const [showGraph, setShowGraph] = useState(false);
   const [period, setPeriod] = useState<"month" | "year">("month");
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
@@ -42,7 +41,6 @@ export function Dashboard({ data, totals }: { data: AppData; totals: DashboardTo
     ["margin", "추정 이익", periodTotals.sales - periodTotals.purchase],
     ["overdue", "미수 업체", periodTotals.overdueCustomers]
   ];
-  const maxSales = Math.max(...periodSales.map((sale) => sale.amount), 1);
   const trend = useMemo(() => {
     const [year, month] = selectedMonth.split("-").map(Number);
     const current = new Date(year, month - 1, 1);
@@ -50,22 +48,19 @@ export function Dashboard({ data, totals }: { data: AppData; totals: DashboardTo
       const date = new Date(current.getFullYear(), current.getMonth() - (5 - index), 1);
       const key = monthKey(date);
       return {
+        key,
         label: `${date.getMonth() + 1}월`,
         value: data.sales.filter((sale) => monthKey(new Date(sale.createdAt)) === key).reduce((sum, sale) => sum + sale.amount, 0)
       };
     });
   }, [data.sales, selectedMonth]);
-  const graphItems = useMemo(
-    () => [
-      { label: "매출", value: periodTotals.sales, tone: "sales" },
-      { label: "입금", value: periodTotals.paid, tone: "paid" },
-      { label: "미수금", value: Math.max(0, periodTotals.sales - periodTotals.paid), tone: "unpaid" },
-      { label: "지출", value: periodTotals.purchase, tone: "purchase" },
-      { label: "추정 이익", value: periodTotals.sales - periodTotals.purchase, tone: "margin" }
-    ],
-    [periodTotals.paid, periodTotals.purchase, periodTotals.sales]
-  );
-  const maxGraphValue = Math.max(...graphItems.map((item) => Math.abs(item.value)), 1);
+  const nowKey = monthKey(new Date());
+  const trendMax = Math.max(...trend.map((row) => row.value), 1);
+  const trendEmpty = trend.every((row) => row.value === 0);
+  const shortMan = (value: number) => (value > 0 ? `${money(Math.round(value / 10000))}만` : "-");
+  const rankedSales = useMemo(() => [...periodSales].sort((a, b) => b.amount - a.amount), [periodSales]);
+  const topSales = rankedSales.slice(0, 5);
+  const topSalesMax = Math.max(...topSales.map((sale) => sale.amount), 1);
   const availableYears = Array.from(new Set([
     String(new Date().getFullYear()),
     ...data.sales.map((sale) => String(new Date(sale.createdAt).getFullYear())),
@@ -88,9 +83,6 @@ export function Dashboard({ data, totals }: { data: AppData; totals: DashboardTo
         <div className="top-actions">
           <button className={period === "month" ? "" : "ghost"} onClick={() => setPeriod("month")}>월간</button>
           <button className={period === "year" ? "" : "ghost"} onClick={() => setPeriod("year")}>연간</button>
-          <button className={showGraph ? "ghost" : ""} onClick={() => setShowGraph((value) => !value)}>
-            {showGraph ? "요약 보기" : "그래프 보기"}
-          </button>
           {period === "month" ? (
             <input aria-label="대시보드 조회 월" type="month" value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)} />
           ) : (
@@ -130,65 +122,69 @@ export function Dashboard({ data, totals }: { data: AppData; totals: DashboardTo
         )}
       </div>
 
-      {showGraph ? (
-        <div className="grid two">
-          <div className="panel chart-panel">
-            <SectionTitle title="수익 흐름 그래프" hint="매출, 입금, 미수금, 지출, 이익을 한눈에 비교합니다." />
-            <div className="metric-bars">
-              {graphItems.map((item) => (
-                <div className="metric-bar" key={item.label}>
-                  <span>{item.label}</span>
-                  <i className={item.tone} style={{ width: `${Math.max(6, (Math.abs(item.value) / maxGraphValue) * 100)}%` }} />
-                  <b>{money(item.value)}원</b>
-                </div>
-              ))}
+      <div className="grid two">
+        <div className="panel chart-panel">
+          <SectionTitle title="최근 6개월 매출" hint="최근 6개월 · 승인 매출 기준" />
+          {trendEmpty ? (
+            <p className="chart-empty">아직 매출 데이터가 없습니다.</p>
+          ) : (
+            <div className="vchart">
+              <div className="vchart-plot">
+                {trend.map((item) => (
+                  <div className="vchart-col" key={item.key} title={`${item.label} 매출 ${money(item.value)}원`}>
+                    <span className="vchart-value">{shortMan(item.value)}</span>
+                    <div className="vchart-track">
+                      <div
+                        className={`vchart-bar${item.key === nowKey ? " current" : ""}`}
+                        style={{ height: `${item.value > 0 ? Math.max(4, (item.value / trendMax) * 100) : 0}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="vchart-axis">
+                {trend.map((item) => (
+                  <span className={`vchart-label${item.key === nowKey ? " current" : ""}`} key={item.key}>{item.label}</span>
+                ))}
+              </div>
             </div>
-          </div>
-          <div className="panel chart-panel">
-            <SectionTitle title="최근 매출 그래프" hint="견적별 매출 규모를 비교합니다." />
-            <div className="bars">
-              {periodSales.map((sale) => {
-                const quote = data.quotes.find((item) => item.id === sale.quoteId);
+          )}
+        </div>
+        <div className="panel chart-panel">
+          <SectionTitle title="프로젝트별 매출 TOP 5" hint="선택한 기간의 승인 매출 상위 프로젝트" />
+          {topSales.length === 0 ? (
+            <p className="chart-empty">승인된 매출이 없습니다.</p>
+          ) : (
+            <div className="hbars">
+              {topSales.map((sale) => {
+                const name = data.quotes.find((quote) => quote.id === sale.quoteId)?.form.projectName || "견적";
                 return (
-                  <div className="bar-line" key={sale.id}>
-                    <span>{quote?.form.projectName || "견적"}</span>
-                    <i style={{ width: `${Math.max(8, (sale.amount / maxSales) * 100)}%` }} />
-                    <b>{money(sale.amount)}원</b>
+                  <div className="hbar" key={sale.id}>
+                    <span className="hbar-name" title={name}>{name}</span>
+                    <span className="hbar-track"><i style={{ width: `${Math.max(6, (sale.amount / topSalesMax) * 100)}%` }} /></span>
+                    <b className="hbar-value">{money(sale.amount)}원</b>
                   </div>
                 );
               })}
+              {rankedSales.length > 5 && <p className="hbar-more">외 {rankedSales.length - 5}건</p>}
             </div>
-          </div>
+          )}
         </div>
-      ) : (
-        <div className="grid two">
-          <div className="panel">
-            <SectionTitle title="최근 6개월 매출 추이" hint="저장된 승인 매출 기준" />
-            <div className="bars">
-              {trend.map((item) => {
-                return (
-                  <div className="bar-line" key={item.label}>
-                    <span>{item.label}</span>
-                    <i style={{ width: `${Math.max(item.value ? 8 : 0, (item.value / Math.max(...trend.map((row) => row.value), 1)) * 100)}%` }} />
-                    <b>{money(item.value)}원</b>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-          <div className="panel">
-            <SectionTitle title="거래처 요약" hint="매출·미수 기준" />
-            <DataTable
-              headers={["고객", "누적 매출", "미수금"]}
-              rows={data.customers.map((customer) => [customer.name, `${money(customer.totalSales)}원`, `${money(customer.unpaidAmount)}원`])}
-            />
-          </div>
-          <div className="panel">
-            <SectionTitle title="품목 요약" hint="견적에 가장 많이 포함된 품목과 누적 금액" />
-            <DataTable headers={["품목", "횟수", "누적 견적액"]} rows={categoryRows.map(([category, value]) => [category, `${value.count}회`, `${money(value.sales)}원`])} />
-          </div>
+      </div>
+
+      <div className="grid two">
+        <div className="panel">
+          <SectionTitle title="거래처 요약" hint="매출·미수 기준" />
+          <DataTable
+            headers={["고객", "누적 매출", "미수금"]}
+            rows={data.customers.map((customer) => [customer.name, `${money(customer.totalSales)}원`, `${money(customer.unpaidAmount)}원`])}
+          />
         </div>
-      )}
+        <div className="panel">
+          <SectionTitle title="품목 요약" hint="견적에 가장 많이 포함된 품목과 누적 금액" />
+          <DataTable headers={["품목", "횟수", "누적 견적액"]} rows={categoryRows.map(([category, value]) => [category, `${value.count}회`, `${money(value.sales)}원`])} />
+        </div>
+      </div>
     </section>
   );
 }
