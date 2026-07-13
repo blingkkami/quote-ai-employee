@@ -164,17 +164,17 @@ button:disabled {
 }
 
 .landing {
-  height: 100vh;
+  min-height: 100vh;
   overflow: auto;
   display: grid;
   place-items: center;
   padding: 40px 20px;
-  background: linear-gradient(160deg, #eef3fb 0%, #f4f6f9 100%);
+  background: #f4f6f9;
 }
 
 .landing-inner {
   width: 100%;
-  max-width: 880px;
+  max-width: 960px;
   display: grid;
   justify-items: center;
   text-align: center;
@@ -195,6 +195,13 @@ button:disabled {
   color: #0f172a;
 }
 
+.landing-kicker {
+  margin: 4px 0 -8px;
+  color: #4f6fae;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .landing-tagline {
   margin: 0;
   max-width: 560px;
@@ -211,6 +218,44 @@ button:disabled {
   gap: 12px;
 }
 
+.landing-flow {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 10px 0 2px;
+  padding: 12px 16px;
+  border: 1px solid #d8e0ea;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.landing-flow-step {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #334155;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.landing-flow-step > span {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #e8eef8;
+  color: #3f5f9d;
+  font-weight: 700;
+}
+
+.landing-flow-step svg {
+  margin-left: 3px;
+  color: #9aa7b8;
+}
+
 .landing-card {
   display: grid;
   gap: 6px;
@@ -218,8 +263,22 @@ button:disabled {
   text-align: left;
   background: #ffffff;
   border: 1px solid #e5eaf2;
-  border-radius: 12px;
+  border-radius: 8px;
   padding: 18px;
+}
+
+.landing-dashboard-note {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-left: 3px solid #16836f;
+  background: #edf8f5;
+  color: #17695c;
+  font-size: 13px;
+  text-align: left;
 }
 
 .landing-card-icon {
@@ -250,6 +309,9 @@ button:disabled {
   padding: 12px 30px;
   min-height: 44px;
   font-size: 15px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .landing-foot {
@@ -266,6 +328,32 @@ button:disabled {
   .landing-title {
     font-size: 32px;
   }
+
+  .landing-flow {
+    justify-content: flex-start;
+    overflow-x: auto;
+  }
+}
+
+.customer-snapshot {
+  padding: 10px 12px;
+  border: 1px solid #d9e1ec;
+  border-radius: 8px;
+  background: #fbfcfe;
+}
+
+.customer-snapshot summary {
+  cursor: pointer;
+  color: #334155;
+  font-weight: 700;
+}
+
+.customer-snapshot[open] summary {
+  margin-bottom: 8px;
+}
+
+.customer-snapshot .muted {
+  margin: 0 0 10px;
 }
 
 main {
@@ -1066,6 +1154,35 @@ th {
   width: min(100%, 780px);
 }
 
+.issue-options {
+  display: grid;
+  grid-template-columns: 180px minmax(220px, 1fr);
+  gap: 12px 16px;
+  align-items: end;
+  padding: 14px;
+  border: 1px solid #e1e7ef;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.field-label {
+  display: block;
+  margin-bottom: 6px;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.preference-save {
+  justify-self: start;
+}
+
+table tfoot th {
+  background: #f1f5f9;
+  color: #334155;
+  white-space: nowrap;
+}
+
 .env-list {
   display: flex;
   flex-wrap: wrap;
@@ -1401,6 +1518,18 @@ button.kpi.active {
     position: static;
   }
 
+  .split {
+    height: auto;
+    min-height: calc(100vh - 62px);
+    overflow: auto;
+    align-items: start;
+  }
+
+  .editor {
+    height: auto;
+    overflow: visible;
+  }
+
   .crm-sidebar {
     position: static;
   }
@@ -1459,34 +1588,67 @@ button.kpi.active {
   .kpis.mini {
     grid-template-columns: 1fr;
   }
+
+  .issue-options {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 480px) {
   .app {
-    grid-template-columns: 72px minmax(0, 1fr);
+    display: block;
+    padding-bottom: 64px;
   }
 
   .sidebar {
-    padding: 12px 8px;
+    position: fixed;
+    z-index: 50;
+    inset: auto 0 0;
+    width: 100%;
+    height: 64px;
+    padding: 7px 8px;
+    border-right: 0;
+    border-top: 1px solid #dce3ec;
+    background: #ffffff;
   }
 
-  .brand {
-    justify-content: center;
-  }
-
-  .brand div,
+  .brand,
+  .sidebar-about,
   .sidebar nav button span {
     display: none;
   }
 
-  .brand-mark {
-    width: 42px;
-    height: 42px;
+  .sidebar nav {
+    display: flex;
+    gap: 3px;
+    width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
   }
 
   .sidebar nav button {
+    flex: 0 0 48px;
     justify-content: center;
-    padding: 10px 8px;
+    min-height: 48px;
+    padding: 9px;
+  }
+
+  main {
+    height: calc(100vh - 64px);
+  }
+
+  .split,
+  .ledger-page,
+  .vendor-page,
+  .issue-page {
+    padding: 12px;
+  }
+
+  .panel,
+  .editor,
+  .preview-wrap {
+    border-radius: 8px;
+    padding: 12px;
   }
 }
 

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, Plus, Save, Trash2 } from "lucide-react";
-import type { Customer, QuoteRecord } from "../types";
+import type { Customer, CustomerSnapshot, QuoteRecord } from "../types";
 import { uid } from "../lib/id";
 import { invoiceLabels } from "../constants";
 import { SectionTitle } from "../components/SectionTitle";
@@ -16,6 +16,7 @@ export function QuoteBuilder({
   onCustomerUpdate,
   logo,
   onLogoChange,
+  itemSuggestions,
   isApproving
 }: {
   quote: QuoteRecord;
@@ -25,6 +26,7 @@ export function QuoteBuilder({
   onCustomerUpdate: (customer: Customer) => void;
   logo?: string;
   onLogoChange: (logoDataUrl?: string) => void;
+  itemSuggestions: { category: string; description: string }[];
   isApproving: boolean;
 }) {
   const [draft, setDraft] = useState(quote);
@@ -74,15 +76,46 @@ export function QuoteBuilder({
 
   const applyCustomerPreference = (customerId: string) => {
     const selected = customers.find((item) => item.id === customerId);
+    const customerSnapshot: CustomerSnapshot | undefined = selected
+      ? {
+          name: selected.name,
+          businessNumber: selected.businessNumber,
+          representativeName: selected.representativeName,
+          address: selected.address,
+          contactPerson: selected.contactPerson,
+          contact: selected.contact,
+          email: selected.email
+        }
+      : undefined;
     setDraft({
       ...draft,
-      customerId,
+      customerId: customerId || undefined,
+      customerSnapshot,
       invoiceIssuanceMode: selected?.invoicePreference === "tax_invoice_manual" ? "manual" : "auto",
       invoiceType: {
         issueInvoice: selected?.invoicePreference !== "cash_receipt",
         issueCashReceipt: selected?.invoicePreference === "cash_receipt"
       }
     });
+  };
+
+  const updateCustomerSnapshot = (patch: Partial<CustomerSnapshot>) => {
+    if (!draft.customerSnapshot) return;
+    setDraft({ ...draft, customerSnapshot: { ...draft.customerSnapshot, ...patch } });
+  };
+
+  const saveNow = () => {
+    latestDraftRef.current = draft;
+    lastSavedRef.current = JSON.stringify(draft);
+    onSave(draft);
+  };
+
+  const approveNow = () => {
+    // Approval persists this exact draft. Marking it saved prevents unmount cleanup
+    // from overwriting the approved record with the pre-approval draft.
+    latestDraftRef.current = draft;
+    lastSavedRef.current = JSON.stringify(draft);
+    onApprove(draft);
   };
 
   return (
@@ -140,6 +173,21 @@ export function QuoteBuilder({
             </button>
           </div>
         )}
+        {draft.customerSnapshot && (
+          <details className="customer-snapshot">
+            <summary>이번 견적의 고객 정보</summary>
+            <p className="muted">여기서 수정한 내용은 고객 원본이 아닌 이번 견적과 발행 정보에만 적용됩니다.</p>
+            <div className="grid two">
+              <Input label="상호" value={draft.customerSnapshot.name} onChange={(value) => updateCustomerSnapshot({ name: value })} />
+              <Input label="사업자번호" value={draft.customerSnapshot.businessNumber ?? ""} onChange={(value) => updateCustomerSnapshot({ businessNumber: value })} />
+              <Input label="대표자" value={draft.customerSnapshot.representativeName ?? ""} onChange={(value) => updateCustomerSnapshot({ representativeName: value })} />
+              <Input label="담당자" value={draft.customerSnapshot.contactPerson} onChange={(value) => updateCustomerSnapshot({ contactPerson: value })} />
+              <Input label="연락처" value={draft.customerSnapshot.contact} onChange={(value) => updateCustomerSnapshot({ contact: value })} />
+              <Input label="이메일" value={draft.customerSnapshot.email ?? ""} onChange={(value) => updateCustomerSnapshot({ email: value })} />
+            </div>
+            <Input label="주소" value={draft.customerSnapshot.address ?? ""} onChange={(value) => updateCustomerSnapshot({ address: value })} />
+          </details>
+        )}
         <div className="grid two">
           <Input label="견적일" type="date" value={draft.form.quoteDate} placeholder="2026-05-18" onChange={(value) => setForm("quoteDate", value)} />
           <Input label="유효기간" value={draft.form.validDuration} placeholder="견적일로부터 14일" onChange={(value) => setForm("validDuration", value)} />
@@ -151,10 +199,12 @@ export function QuoteBuilder({
 
         <SectionTitle title="작업 항목" hint="최소 1개 항목은 유지됩니다." />
         <div className="items">
+          <datalist id="quote-category-suggestions">{itemSuggestions.map((item) => <option key={`category-${item.category}`} value={item.category} />)}</datalist>
+          <datalist id="quote-description-suggestions">{itemSuggestions.map((item) => <option key={`description-${item.category}-${item.description}`} value={item.description} />)}</datalist>
           {draft.items.map((item, index) => (
             <div className="item-row" key={item.id}>
-              <input placeholder="구분" value={item.category} onChange={(event) => updateItem(item.id, { category: event.target.value })} />
-              <input placeholder="내용" value={item.description} onChange={(event) => updateItem(item.id, { description: event.target.value })} />
+              <input list="quote-category-suggestions" placeholder="구분" value={item.category} onChange={(event) => updateItem(item.id, { category: event.target.value })} />
+              <input list="quote-description-suggestions" placeholder="내용" value={item.description} onChange={(event) => updateItem(item.id, { description: event.target.value })} />
               <input type="number" min="0" value={item.price || ""} onChange={(event) => updateItem(item.id, { price: Number(event.target.value) })} />
               <button
                 className="icon"
@@ -201,10 +251,10 @@ export function QuoteBuilder({
         </label>
 
         <div className="sticky-actions">
-          <button className="ghost" onClick={() => onSave(draft)}>
+          <button className="ghost" onClick={saveNow}>
             <Save size={17} /> 저장
           </button>
-          <button disabled={isApproving} onClick={() => onApprove(draft)}>
+          <button disabled={isApproving} onClick={approveNow}>
             <CheckCircle2 size={17} /> {isApproving ? "처리 중" : "승인·발행"}
           </button>
         </div>

@@ -32,6 +32,9 @@ export function SettingsView({ integration, onChange }: { integration: TaxApiInt
         return;
       }
       const response = await fetch("/api/popbill/status");
+      if (!response.ok || !response.headers.get("content-type")?.includes("application/json")) {
+        throw new Error("팝빌 서버 상태 응답을 확인할 수 없습니다.");
+      }
       const next = await response.json() as ConnectionCheck;
       setResult(next);
       onChange({ ...draft, isConnected: Boolean(next.configured), lastTestedAt: new Date().toISOString() });

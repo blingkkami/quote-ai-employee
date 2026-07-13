@@ -9,7 +9,7 @@ const USER_ID = process.env.POPBILL_USER_ID || "";
 const IS_TEST = process.env.POPBILL_IS_TEST !== "false"; // default sandbox
 
 const onlyDigits = (value) => String(value ?? "").replace(/\D/g, "");
-const hasCredentials = Boolean(LINK_ID && SECRET_KEY && CORP_NUM);
+const hasCredentials = Boolean(LINK_ID && SECRET_KEY && CORP_NUM && CORP_NAME && CEO_NAME);
 
 // Configure the SDK once, guarded by credential presence.
 let taxinvoiceService = null;
@@ -139,7 +139,8 @@ export default async function handler(request, response) {
         ok: true,
         mode: "popbill",
         invoiceStatus: "issued",
-        popbillInvoiceId: ntsConfirmNum || invoicerMgtKey,
+        popbillInvoiceId: invoicerMgtKey,
+        popbillNtsConfirmNum: ntsConfirmNum || undefined,
         quoteId
       });
       return;

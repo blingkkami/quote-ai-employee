@@ -3,6 +3,8 @@ import type { AppData } from "../types";
 import { money } from "../lib/format";
 import { SectionTitle } from "../components/SectionTitle";
 import { DataTable } from "../components/DataTable";
+import { dateInputValue, daysSince, monthKey, parseDate, yearKey } from "../lib/date";
+import { dashboardPeriodData } from "../lib/dashboard";
 
 type DashboardTotals = {
   sales: number;
@@ -14,6 +16,11 @@ type DashboardTotals = {
   overdueCustomers: number;
 };
 
+const recordDate = (value: string) => {
+  const date = parseDate(value);
+  return date ? dateInputValue(date) : value.slice(0, 10);
+};
+
 export function Dashboard({ data, totals }: { data: AppData; totals: DashboardTotals }) {
   const [period, setPeriod] = useState<"month" | "year">("month");
   const [selectedMonth, setSelectedMonth] = useState(() => {
@@ -22,23 +29,16 @@ export function Dashboard({ data, totals }: { data: AppData; totals: DashboardTo
   });
   const [selectedYear, setSelectedYear] = useState(() => String(new Date().getFullYear()));
   const [detail, setDetail] = useState("sales");
-  const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   const periodKey = period === "month" ? selectedMonth : selectedYear;
-  const recordKey = (iso: string) => (period === "month" ? monthKey(new Date(iso)) : String(new Date(iso).getFullYear()));
-  const periodSales = data.sales.filter((sale) => recordKey(sale.createdAt) === periodKey);
-  const periodPurchases = data.purchases.filter((purchase) => recordKey(purchase.purchaseDate || purchase.createdAt) === periodKey);
-  const periodTotals = {
-    sales: periodSales.reduce((sum, sale) => sum + sale.amount, 0),
-    paid: periodSales.reduce((sum, sale) => sum + sale.paidAmount, 0),
-    purchase: periodPurchases.reduce((sum, purchase) => sum + purchase.totalAmount, 0),
-    overdueCustomers: new Set(periodSales.filter((sale) => sale.paymentStatus !== "paid").map((sale) => sale.customerId)).size
-  };
+  const periodData = useMemo(() => dashboardPeriodData(data, period, periodKey), [data, period, periodKey]);
+  const { sales: periodSales, purchases: periodPurchases } = periodData;
+  const periodTotals = periodData.totals;
   const cards = [
     ["sales", "매출액", periodTotals.sales],
     ["paid", "입금액", periodTotals.paid],
     ["unpaid", "미수금", Math.max(0, periodTotals.sales - periodTotals.paid)],
-    ["purchase", "지출액", periodTotals.purchase],
-    ["margin", "추정 이익", periodTotals.sales - periodTotals.purchase],
+    ["purchase", "지출액", periodTotals.expense],
+    ["margin", "추정 이익", periodTotals.margin],
     ["overdue", "미수 업체", periodTotals.overdueCustomers]
   ];
   const trend = useMemo(() => {
@@ -50,7 +50,7 @@ export function Dashboard({ data, totals }: { data: AppData; totals: DashboardTo
       return {
         key,
         label: `${date.getMonth() + 1}월`,
-        value: data.sales.filter((sale) => monthKey(new Date(sale.createdAt)) === key).reduce((sum, sale) => sum + sale.amount, 0)
+        value: data.sales.filter((sale) => monthKey(sale.createdAt) === key).reduce((sum, sale) => sum + sale.amount, 0)
       };
     });
   }, [data.sales, selectedMonth]);
@@ -63,8 +63,8 @@ export function Dashboard({ data, totals }: { data: AppData; totals: DashboardTo
   const topSalesMax = Math.max(...topSales.map((sale) => sale.amount), 1);
   const availableYears = Array.from(new Set([
     String(new Date().getFullYear()),
-    ...data.sales.map((sale) => String(new Date(sale.createdAt).getFullYear())),
-    ...data.purchases.map((purchase) => String(new Date(purchase.purchaseDate || purchase.createdAt).getFullYear()))
+    ...data.sales.map((sale) => yearKey(sale.createdAt)),
+    ...data.purchases.map((purchase) => yearKey(purchase.purchaseDate || purchase.createdAt))
   ])).sort().reverse();
   const detailSales = detail === "unpaid" || detail === "overdue" ? periodSales.filter((sale) => sale.paymentStatus !== "paid") : periodSales;
   const categoryRows = Object.entries(
@@ -74,10 +74,16 @@ export function Dashboard({ data, totals }: { data: AppData; totals: DashboardTo
       return acc;
     }, {})
   ).sort((a, b) => b[1].sales - a[1].sales).slice(0, 8);
+  const longOverdueSales = data.sales.filter((sale) => {
+    if (sale.paymentStatus === "paid") return false;
+    const quote = data.quotes.find((item) => item.id === sale.quoteId);
+    return daysSince(quote?.approvedAt || sale.createdAt) >= 30;
+  });
 
   return (
     <section className="dashboard">
       {totals.unpaid > 0 && <div className="alert">미수금 {money(totals.unpaid)}원이 남아 있습니다. 거래처 원장에서 수금 상태를 정리하세요.</div>}
+      {longOverdueSales.length > 0 && <div className="alert danger-alert">30일 이상 지난 미수금이 {longOverdueSales.length}건 있습니다. 입금일과 잔액을 확인하세요.</div>}
       <div className="dashboard-head">
         <SectionTitle title="대시보드 보기" hint={`${period === "month" ? "이번 달" : "올해"} 기준 수치`} />
         <div className="top-actions">
@@ -104,17 +110,32 @@ export function Dashboard({ data, totals }: { data: AppData; totals: DashboardTo
 
       <div className="panel dashboard-detail">
         <SectionTitle title={`${cards.find(([key]) => key === detail)?.[1] ?? "매출"} 상세`} hint="선택한 기간의 실제 원장 기록입니다." />
-        {detail === "purchase" || detail === "margin" ? (
-          <DataTable headers={["매입일", "매입처", "내용", "매입액", "지급액"]} rows={periodPurchases.map((purchase) => [
+        {detail === "purchase" ? (
+          <DataTable headers={["지급일", "매입처", "내용", "지급액"]} rows={periodData.purchasePayments.map(({ purchase, date, amount }) => [
+            date,
+            data.vendors.find((vendor) => vendor.id === purchase.vendorId)?.name ?? "-",
+            purchase.items.map((item) => item.description).join(", "),
+            `${money(amount)}원`
+          ])} />
+        ) : detail === "margin" ? (
+          <DataTable headers={["매입일", "매입처", "내용", "매입원가", "지급 누계"]} rows={periodPurchases.map((purchase) => [
             purchase.purchaseDate || purchase.createdAt.slice(0, 10),
             data.vendors.find((vendor) => vendor.id === purchase.vendorId)?.name ?? "-",
             purchase.items.map((item) => item.description).join(", "),
             `${money(purchase.totalAmount)}원`,
             `${money(purchase.payments.reduce((sum, payment) => sum + payment.amount, 0))}원`
           ])} />
+        ) : detail === "paid" ? (
+          <DataTable headers={["입금일", "고객", "프로젝트", "입금액"]} rows={periodData.payments.map(({ sale, date, amount }) => [
+            date,
+            data.customers.find((customer) => customer.id === sale.customerId)?.name ?? "-",
+            data.quotes.find((quote) => quote.id === sale.quoteId)?.form.projectName ?? "-",
+            `${money(amount)}원`
+          ])} />
         ) : (
           <DataTable headers={["승인일", "고객", "프로젝트", "매출", "입금", "미수"]} rows={detailSales.map((sale) => [
-            sale.createdAt.slice(0, 10),
+            data.quotes.find((quote) => quote.id === sale.quoteId)?.approvedAt
+              || recordDate(sale.createdAt),
             data.customers.find((customer) => customer.id === sale.customerId)?.name ?? "-",
             data.quotes.find((quote) => quote.id === sale.quoteId)?.form.projectName ?? "-",
             `${money(sale.amount)}원`, `${money(sale.paidAmount)}원`, `${money(sale.amount - sale.paidAmount)}원`

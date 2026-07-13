@@ -4,7 +4,7 @@ import type { AppData, PurchaseRecord, Vendor } from "../types";
 import { uid } from "../lib/id";
 import { money } from "../lib/format";
 import { today } from "../lib/date";
-import { payLabels } from "../constants";
+import { purchasePayLabels } from "../constants";
 import { Status } from "../components/Status";
 import { SectionTitle } from "../components/SectionTitle";
 
@@ -246,7 +246,7 @@ export function VendorManager({ data, setData }: { data: AppData; setData: React
                         <td>{money(purchase.totalAmount)}원</td>
                         <td>{money(paid)}원</td>
                         <td>{money(purchase.totalAmount - paid)}원</td>
-                        <td><Status tone={purchase.paymentStatus}>{payLabels[purchase.paymentStatus]}</Status></td>
+                        <td><Status tone={purchase.paymentStatus}>{purchasePayLabels[purchase.paymentStatus]}</Status></td>
                         <td><div className="row-actions"><button className="ghost" disabled={paid >= purchase.totalAmount} onClick={() => openPayment(purchase)}>지급 입력</button><button className="icon danger" aria-label="매입 삭제" title="매입 삭제" onClick={() => deletePurchase(purchase)}><Trash2 size={15} /></button></div></td>
                       </tr>
                     );

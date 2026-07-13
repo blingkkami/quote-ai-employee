@@ -2,17 +2,16 @@ import { useLayoutEffect, useRef, useState } from "react";
 import type { Customer, QuoteRecord } from "../types";
 import { exampleQuoteForm, exampleQuoteItems } from "../data/quote-defaults";
 import { money } from "../lib/format";
-import { koreanDate, today } from "../lib/date";
-import { quoteSubtotal, quoteTotal } from "../lib/quote-calc";
+import { addDays, koreanDate, today } from "../lib/date";
+import { quoteHasContent, quoteSubtotal, quoteTotal } from "../lib/quote-calc";
 
 function buildValidDuration(validDuration: string, quoteDate: string) {
   if (!validDuration) return "-";
   const match = validDuration.match(/(\d+)\s*일/);
   if (!match || validDuration.includes("총 유효")) return validDuration;
-  const base = new Date(quoteDate);
-  if (!quoteDate || Number.isNaN(base.getTime())) return validDuration;
-  base.setDate(base.getDate() + Number(match[1]));
-  const until = `${base.getFullYear()}년 ${base.getMonth() + 1}월 ${base.getDate()}일`;
+  const validUntil = addDays(quoteDate, Number(match[1]));
+  if (!validUntil) return validDuration;
+  const until = koreanDate(validUntil);
   return `${validDuration} (${until} 총 유효)`;
 }
 
@@ -41,9 +40,7 @@ export function QuotePreview({ quote, logo }: { quote: QuoteRecord; customer?: C
     return () => observer.disconnect();
   }, []);
 
-  const empty =
-    Object.values(quote.form).every((value) => !String(value).trim()) &&
-    quote.items.every((item) => !item.category && !item.description && !item.price);
+  const empty = !quoteHasContent(quote);
   const previewQuote = empty ? { ...quote, form: exampleQuoteForm, items: exampleQuoteItems } : quote;
   const form = previewQuote.form;
 

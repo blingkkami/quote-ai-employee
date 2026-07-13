@@ -27,8 +27,9 @@ export type IssueTaxInvoicePayload = {
 export type IssueTaxInvoiceResult = {
   ok: boolean;
   mode?: string;
-  invoiceStatus: "pending" | "issued" | "failed";
+  invoiceStatus: "pending" | "issued" | "sent" | "failed";
   popbillInvoiceId?: string;
+  popbillNtsConfirmNum?: string;
   message?: string;
 };
 
@@ -50,6 +51,27 @@ export async function issueTaxInvoice(payload: IssueTaxInvoicePayload): Promise<
       };
     }
 
+    return result;
+  } catch (error) {
+    return {
+      ok: false,
+      invoiceStatus: "failed",
+      message: error instanceof Error ? error.message : String(error)
+    };
+  }
+}
+
+export async function getTaxInvoiceStatus(popbillInvoiceId: string): Promise<IssueTaxInvoiceResult> {
+  try {
+    const response = await fetch(`/api/popbill/detail?mgtKey=${encodeURIComponent(popbillInvoiceId)}`);
+    const result = (await response.json()) as IssueTaxInvoiceResult;
+    if (!response.ok) {
+      return {
+        ok: false,
+        invoiceStatus: result?.invoiceStatus === "pending" ? "pending" : "failed",
+        message: result?.message || `상태 조회 실패 (HTTP ${response.status})`
+      };
+    }
     return result;
   } catch (error) {
     return {

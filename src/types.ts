@@ -36,6 +36,16 @@ export type QuoteItem = {
   price: number;
 };
 
+export type CustomerSnapshot = {
+  name: string;
+  businessNumber?: string;
+  representativeName?: string;
+  address?: string;
+  contactPerson: string;
+  contact: string;
+  email?: string;
+};
+
 export type QuoteRecord = {
   id: string;
   status: QuoteStatus;
@@ -43,6 +53,7 @@ export type QuoteRecord = {
   form: QuoteForm;
   items: QuoteItem[];
   customerId?: string;
+  customerSnapshot?: CustomerSnapshot;
   approvedAt?: string;
   invoiceDate?: string;
   invoiceIssuanceMode: InvoiceIssuanceMode;
@@ -51,6 +62,7 @@ export type QuoteRecord = {
     issueCashReceipt: boolean;
   };
   popbillInvoiceId?: string;
+  popbillNtsConfirmNum?: string;
   invoiceStatus?: "pending" | "issued" | "sent" | "failed";
   invoiceNote?: string;
   createdAt: string;

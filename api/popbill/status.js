@@ -1,4 +1,4 @@
-const requiredVariables = ["POPBILL_LINK_ID", "POPBILL_SECRET_KEY", "POPBILL_CORP_NUM"];
+const requiredVariables = ["POPBILL_LINK_ID", "POPBILL_SECRET_KEY", "POPBILL_CORP_NUM", "POPBILL_CORP_NAME", "POPBILL_CEO_NAME"];
 
 export default async function handler(request, response) {
   if (request.method !== "GET") {

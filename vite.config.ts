@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react";
 
 const apiHandlers: Record<string, string> = {
   "/api/popbill/issue": "./api/popbill/issue.js",
+  "/api/popbill/detail": "./api/popbill/detail.js",
   "/api/popbill/status": "./api/popbill/status.js",
   "/api/popbill/webhook": "./api/popbill/webhook.js"
 };
@@ -54,7 +55,8 @@ function apiRoutes(): Plugin {
           const reqLike = {
             method: req.method,
             body: parsedBody,
-            headers: req.headers
+            headers: req.headers,
+            query: Object.fromEntries(new URL(rawUrl, "http://localhost").searchParams.entries())
           };
 
           server

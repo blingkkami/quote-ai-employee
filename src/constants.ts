@@ -40,6 +40,12 @@ export const payLabels: Record<PaymentStatus, string> = {
   paid: "완납"
 };
 
+export const purchasePayLabels: Record<PaymentStatus, string> = {
+  unpaid: "미지급",
+  partial: "부분지급",
+  paid: "완납"
+};
+
 export const invoiceLabels: Record<InvoicePreference, string> = {
   tax_invoice_auto: "세금계산서 자동",
   tax_invoice_manual: "세금계산서 수동",
