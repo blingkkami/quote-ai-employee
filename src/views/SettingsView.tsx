@@ -4,6 +4,7 @@ import type { TaxApiIntegration, TaxApiProvider } from "../types";
 import { SectionTitle } from "../components/SectionTitle";
 import { Input } from "../components/Input";
 import { Status } from "../components/Status";
+import { getPopbillAccessToken, popbillAccessHeaders, setPopbillAccessToken } from "../lib/popbill-access";
 
 const providerLabels: Record<TaxApiProvider, string> = {
   popbill: "팝빌",
@@ -17,6 +18,7 @@ export function SettingsView({ integration, onChange }: { integration: TaxApiInt
   const [draft, setDraft] = useState(integration);
   const [checking, setChecking] = useState(false);
   const [result, setResult] = useState<ConnectionCheck | null>(null);
+  const [accessToken, setAccessToken] = useState(() => getPopbillAccessToken());
 
   useEffect(() => setDraft(integration), [integration]);
   const patchDraft = (patch: Partial<TaxApiIntegration>) => setDraft((prev) => ({ ...prev, ...patch }));
@@ -31,7 +33,14 @@ export function SettingsView({ integration, onChange }: { integration: TaxApiInt
         onChange({ ...draft, isConnected: false, lastTestedAt: new Date().toISOString() });
         return;
       }
-      const response = await fetch("/api/popbill/status");
+      if (!accessToken.trim()) {
+        const next = { configured: false, message: "발행 보안키를 입력해 주세요." };
+        setResult(next);
+        onChange({ ...draft, isConnected: false, lastTestedAt: new Date().toISOString() });
+        return;
+      }
+      setPopbillAccessToken(accessToken.trim());
+      const response = await fetch("/api/popbill/status", { headers: popbillAccessHeaders() });
       if (!response.ok || !response.headers.get("content-type")?.includes("application/json")) {
         throw new Error("팝빌 서버 상태 응답을 확인할 수 없습니다.");
       }
@@ -63,9 +72,20 @@ export function SettingsView({ integration, onChange }: { integration: TaxApiInt
         </div>
 
         <div className="secure-box">
-          <SectionTitle title="Vercel 서버 인증정보" hint="민감한 키는 이 화면이나 브라우저에 저장하지 않습니다." />
+          <SectionTitle title="Vercel 서버 인증정보" hint="팝빌 비밀키는 서버에만 두고, 발행 보안키는 현재 브라우저 탭에만 보관합니다." />
+          <Input
+            label="발행 보안키"
+            type="password"
+            value={accessToken}
+            placeholder="Vercel의 POPBILL_ACCESS_TOKEN"
+            onChange={(value) => {
+              setAccessToken(value);
+              if (!value) setPopbillAccessToken("");
+              setResult(null);
+            }}
+          />
           <div className="env-list">
-            <code>POPBILL_LINK_ID</code><code>POPBILL_SECRET_KEY</code><code>POPBILL_CORP_NUM</code><code>POPBILL_CORP_NAME</code><code>POPBILL_CEO_NAME</code><code>POPBILL_USER_ID</code>
+            <code>POPBILL_LINK_ID</code><code>POPBILL_SECRET_KEY</code><code>POPBILL_CORP_NUM</code><code>POPBILL_CORP_NAME</code><code>POPBILL_CEO_NAME</code><code>POPBILL_USER_ID</code><code>POPBILL_ACCESS_TOKEN</code>
           </div>
           {result && <div className={result.configured ? "notice" : "alert danger-alert"}>{result.message}{result.environment ? ` 현재 ${result.environment === "production" ? "운영" : "테스트"} 환경입니다.` : ""}</div>}
         </div>

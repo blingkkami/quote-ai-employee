@@ -1,4 +1,5 @@
 import popbill from "popbill";
+import { hasValidAccessToken, isAccessTokenConfigured, rejectPopbillAccess } from "./auth.js";
 
 const LINK_ID = process.env.POPBILL_LINK_ID;
 const SECRET_KEY = process.env.POPBILL_SECRET_KEY;
@@ -29,6 +30,14 @@ if (hasCredentials) {
 export default async function handler(request, response) {
   if (request.method !== "POST") {
     response.status(405).json({ ok: false, message: "Method not allowed" });
+    return;
+  }
+  if (!isAccessTokenConfigured()) {
+    rejectPopbillAccess(response, 503);
+    return;
+  }
+  if (!hasValidAccessToken(request)) {
+    rejectPopbillAccess(response);
     return;
   }
 
@@ -71,6 +80,15 @@ export default async function handler(request, response) {
       response.status(400).json({ ok: false, message: "합계 금액이 올바르지 않습니다." });
       return;
     }
+    if (Number(total) !== Number(supplyCost) + Number(tax)) {
+      response.status(400).json({ ok: false, message: "공급가와 부가세 합계가 일치하지 않습니다." });
+      return;
+    }
+    const writeDateDigits = String(writeDate || "").replace(/-/g, "");
+    if (!/^\d{8}$/.test(writeDateDigits)) {
+      response.status(400).json({ ok: false, message: "발행일은 YYYY-MM-DD 형식이어야 합니다." });
+      return;
+    }
 
     // Never report a successful issue when server credentials are missing.
     if (!hasCredentials) {
@@ -86,14 +104,14 @@ export default async function handler(request, response) {
 
     // Real issuance via Popbill SDK.
     const supplierCorpNum = onlyDigits(CORP_NUM);
-    const writeDateDigits = String(writeDate || "").replace(/-/g, "");
-    const invoicerMgtKey = `${quoteId}-${Date.now().toString(36)}`.slice(0, 24);
+    // A stable key makes retries idempotent at Popbill as well as in the browser.
+    const invoicerMgtKey = String(quoteId).replace(/[^A-Za-z0-9_-]/g, "-").slice(0, 24);
 
     const taxinvoice = {
       writeDate: writeDateDigits,
       chargeDirection: "정과금",
       issueType: "정발행",
-      purposeType: "영수",
+      purposeType: "청구",
       taxType: "과세",
       invoicerCorpNum: supplierCorpNum,
       invoicerCorpName: CORP_NAME,
@@ -103,6 +121,8 @@ export default async function handler(request, response) {
       invoiceeCorpNum: customerCorpNum,
       invoiceeCorpName: customer.name || "",
       invoiceeCEOName: customer.ceoName || customer.name || "",
+      invoiceeAddr: customer.address || "",
+      invoiceeContactName1: customer.contactName || "",
       invoiceeEmail1: customer.email || "",
       supplyCostTotal: String(supplyCost),
       taxTotal: String(tax),
@@ -134,7 +154,7 @@ export default async function handler(request, response) {
     });
 
     if (result.ok) {
-      const ntsConfirmNum = result.issueResult && result.issueResult.ntsConfirmNum;
+      const ntsConfirmNum = result.issueResult && (result.issueResult.ntsconfirmNum || result.issueResult.ntsConfirmNum);
       response.status(200).json({
         ok: true,
         mode: "popbill",
@@ -152,6 +172,7 @@ export default async function handler(request, response) {
       ok: false,
       mode: "popbill",
       invoiceStatus: "failed",
+      popbillInvoiceId: invoicerMgtKey,
       message: String(message),
       quoteId
     });

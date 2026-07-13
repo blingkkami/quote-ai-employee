@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { AppData } from "../types";
+import type { AppData, QuoteRecord } from "../types";
 import { dashboardPeriodData } from "./dashboard";
 
 const data: AppData = {
@@ -58,5 +58,24 @@ describe("dashboardPeriodData", () => {
     expect(july.totals.expense).toBe(40000);
     expect(july.totals.purchaseCost).toBe(100000);
     expect(july.totals.margin).toBe(200000);
+  });
+
+  it("uses the quote approval date instead of a later sale record creation date", () => {
+    const quote: QuoteRecord = {
+      id: "quote-july",
+      status: "approved",
+      paymentStatus: "unpaid",
+      form: { quoteDate: "", validDuration: "", issuerName: "", projectName: "승인일 테스트", deliveryFormat: "", deliverySchedule: "", finalCategory: "", finalDescription: "", notes: "", message: "", signOffSender: "", signOffDate: "" },
+      items: [],
+      approvedAt: "2026-06-30",
+      invoiceIssuanceMode: "manual",
+      invoiceType: { issueInvoice: true, issueCashReceipt: false },
+      createdAt: "2026-07-10T12:00:00.000Z",
+      updatedAt: "2026-07-10T12:00:00.000Z"
+    };
+    const withApprovalDate = { ...data, quotes: [quote] };
+
+    expect(dashboardPeriodData(withApprovalDate, "month", "2026-06").totals.sales).toBe(800000);
+    expect(dashboardPeriodData(withApprovalDate, "month", "2026-07").totals.sales).toBe(0);
   });
 });

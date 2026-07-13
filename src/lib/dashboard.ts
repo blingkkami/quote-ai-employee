@@ -18,8 +18,11 @@ export type PurchasePaymentEvent = {
 const matchesPeriod = (value: string, period: DashboardPeriod, key: string) =>
   (period === "month" ? monthKey(value) : yearKey(value)) === key;
 
+export const saleRecordDate = (data: AppData, sale: SaleRecord) =>
+  data.quotes.find((quote) => quote.id === sale.quoteId)?.approvedAt || sale.createdAt;
+
 export function dashboardPeriodData(data: AppData, period: DashboardPeriod, key: string) {
-  const sales = data.sales.filter((sale) => matchesPeriod(sale.createdAt, period, key));
+  const sales = data.sales.filter((sale) => matchesPeriod(saleRecordDate(data, sale), period, key));
   const purchases = data.purchases.filter((purchase) =>
     matchesPeriod(purchase.purchaseDate || purchase.createdAt, period, key)
   );

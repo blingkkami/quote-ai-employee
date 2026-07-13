@@ -9,7 +9,7 @@ const features = [
   {
     icon: Receipt,
     title: "승인·세금계산서",
-    body: "견적 승인 후 발행일과 방식을 확인합니다. 팝빌 인증정보 연결 후에만 실제 자동 발행됩니다."
+    body: "승인할 견적과 발행일·방식을 확인합니다. 팝빌 연동이 완료된 경우에만 실제 자동 발행됩니다."
   },
   {
     icon: Users,
@@ -23,7 +23,7 @@ const features = [
   }
 ];
 
-const workflow = ["견적 작성", "고객 승인", "발행 처리", "수금·매입", "대시보드"];
+const workflow = ["견적 작성", "승인 처리", "발행 준비", "수금·매입", "분석 확인"];
 
 export function Landing({ onStart }: { onStart: () => void }) {
   return (

@@ -1,4 +1,5 @@
 import popbill from "popbill";
+import { hasValidAccessToken, isAccessTokenConfigured, rejectPopbillAccess } from "./auth.js";
 
 const LINK_ID = process.env.POPBILL_LINK_ID;
 const SECRET_KEY = process.env.POPBILL_SECRET_KEY;
@@ -26,6 +27,14 @@ if (configured) {
 export default async function handler(request, response) {
   if (request.method !== "GET") {
     response.status(405).json({ ok: false, message: "Method not allowed" });
+    return;
+  }
+  if (!isAccessTokenConfigured()) {
+    rejectPopbillAccess(response, 503);
+    return;
+  }
+  if (!hasValidAccessToken(request)) {
+    rejectPopbillAccess(response);
     return;
   }
   if (!configured) {

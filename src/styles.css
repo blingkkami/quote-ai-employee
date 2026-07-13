@@ -330,8 +330,23 @@ button:disabled {
   }
 
   .landing-flow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    display: grid;
+    gap: 10px 14px;
+    padding: 12px;
+  }
+
+  .landing-flow-step {
     justify-content: flex-start;
-    overflow-x: auto;
+  }
+
+  .landing-flow-step:nth-child(5) {
+    grid-column: 1 / -1;
+    justify-content: center;
+  }
+
+  .landing-flow-step svg {
+    display: none;
   }
 }
 

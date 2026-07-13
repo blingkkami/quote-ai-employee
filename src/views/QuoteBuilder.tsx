@@ -69,8 +69,23 @@ export function QuoteBuilder({
 
   const handleLogoFile = (file?: File) => {
     if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      window.alert("PNG, JPG, WEBP 등 이미지 파일만 로고로 등록할 수 있습니다.");
+      return;
+    }
+    if (file.size > 1024 * 1024) {
+      window.alert("로고 파일은 1MB 이하로 등록해 주세요.");
+      return;
+    }
     const reader = new FileReader();
-    reader.onload = () => onLogoChange(typeof reader.result === "string" ? reader.result : undefined);
+    reader.onerror = () => window.alert("로고 파일을 읽지 못했습니다. 다른 이미지로 다시 시도해 주세요.");
+    reader.onload = () => {
+      if (typeof reader.result !== "string") return;
+      const image = new Image();
+      image.onload = () => onLogoChange(reader.result as string);
+      image.onerror = () => window.alert("올바른 이미지 파일인지 확인해 주세요.");
+      image.src = reader.result;
+    };
     reader.readAsDataURL(file);
   };
 

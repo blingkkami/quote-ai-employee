@@ -4,7 +4,7 @@ import { money } from "../lib/format";
 import { SectionTitle } from "../components/SectionTitle";
 import { DataTable } from "../components/DataTable";
 import { dateInputValue, daysSince, monthKey, parseDate, yearKey } from "../lib/date";
-import { dashboardPeriodData } from "../lib/dashboard";
+import { dashboardPeriodData, saleRecordDate } from "../lib/dashboard";
 
 type DashboardTotals = {
   sales: number;
@@ -50,10 +50,10 @@ export function Dashboard({ data, totals }: { data: AppData; totals: DashboardTo
       return {
         key,
         label: `${date.getMonth() + 1}월`,
-        value: data.sales.filter((sale) => monthKey(sale.createdAt) === key).reduce((sum, sale) => sum + sale.amount, 0)
+        value: data.sales.filter((sale) => monthKey(saleRecordDate(data, sale)) === key).reduce((sum, sale) => sum + sale.amount, 0)
       };
     });
-  }, [data.sales, selectedMonth]);
+  }, [data, selectedMonth]);
   const nowKey = monthKey(new Date());
   const trendMax = Math.max(...trend.map((row) => row.value), 1);
   const trendEmpty = trend.every((row) => row.value === 0);

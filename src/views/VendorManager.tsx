@@ -87,7 +87,7 @@ export function VendorManager({ data, setData }: { data: AppData; setData: React
 
   const addPurchase = () => {
     const numericAmount = Number(amount);
-    if (!activeVendor || !description.trim() || numericAmount < 1) return;
+    if (!activeVendor || !purchaseDate || !description.trim() || !Number.isFinite(numericAmount) || numericAmount < 1) return;
     const now = new Date().toISOString();
     const record: PurchaseRecord = {
       id: uid("pur"),
@@ -139,7 +139,7 @@ export function VendorManager({ data, setData }: { data: AppData; setData: React
     const paid = payingPurchase.payments.reduce((sum, payment) => sum + payment.amount, 0);
     const remaining = Math.max(0, payingPurchase.totalAmount - paid);
     const nextAmount = Math.min(Number(paymentAmount), remaining);
-    if (nextAmount < 1) return;
+    if (!paymentDate || !Number.isFinite(nextAmount) || nextAmount < 1) return;
     setData((prev) => ({
       ...prev,
       purchases: prev.purchases.map((purchase) => {
@@ -209,7 +209,7 @@ export function VendorManager({ data, setData }: { data: AppData; setData: React
               <label>구분<input placeholder="예: 인쇄, 외주" value={category} onChange={(event) => setCategory(event.target.value)} /></label>
               <label className="purchase-description">내용<input placeholder="매입 내용을 입력하세요" value={description} onChange={(event) => setDescription(event.target.value)} /></label>
               <label>금액<input type="number" min="0" value={amount} onChange={(event) => setAmount(event.target.value)} /></label>
-              <button disabled={!description.trim() || Number(amount) < 1} onClick={addPurchase}><Plus size={16} /> 매입 저장</button>
+              <button disabled={!purchaseDate || !description.trim() || !Number.isFinite(Number(amount)) || Number(amount) < 1} onClick={addPurchase}><Plus size={16} /> 매입 저장</button>
             </div>
           </div>
           )}
@@ -220,7 +220,7 @@ export function VendorManager({ data, setData }: { data: AppData; setData: React
               <div className="grid payment-grid">
                 <label>지급일<input type="date" value={paymentDate} onChange={(event) => setPaymentDate(event.target.value)} /></label>
                 <label>지급액<input type="number" min="1" value={paymentAmount} onChange={(event) => setPaymentAmount(event.target.value)} /></label>
-                <div className="actions"><button onClick={submitPayment}><WalletCards size={16} /> 지급 반영</button><button className="ghost" onClick={() => setPayingPurchaseId("")}>취소</button></div>
+                <div className="actions"><button disabled={!paymentDate || !Number.isFinite(Number(paymentAmount)) || Number(paymentAmount) < 1} onClick={submitPayment}><WalletCards size={16} /> 지급 반영</button><button className="ghost" onClick={() => setPayingPurchaseId("")}>취소</button></div>
               </div>
             </div>
           )}

@@ -3,6 +3,7 @@ import { Copy, Search, Trash2, X } from "lucide-react";
 import type { Customer, PaymentStatus, QuoteRecord, QuoteStatus } from "../types";
 import { money } from "../lib/format";
 import { quoteTotal } from "../lib/quote-calc";
+import { quoteRecordDate } from "../lib/quote-date";
 import { payLabels, statusLabels } from "../constants";
 import { Status } from "../components/Status";
 import { DataTable } from "../components/DataTable";
@@ -53,8 +54,9 @@ export function QuoteList({
   const filtered = useMemo(() => quotes.filter((quote) => {
     if (statusFilter !== "all" && quote.status !== statusFilter) return false;
     if (paymentFilter !== "all" && quote.paymentStatus !== paymentFilter) return false;
-    if (dateFrom && quote.form.quoteDate && quote.form.quoteDate < dateFrom) return false;
-    if (dateTo && quote.form.quoteDate && quote.form.quoteDate > dateTo) return false;
+    const recordDate = quoteRecordDate(quote);
+    if (dateFrom && recordDate < dateFrom) return false;
+    if (dateTo && recordDate > dateTo) return false;
     const customer = customers.find((item) => item.id === quote.customerId);
     const searchableText = [
       quote.id,
