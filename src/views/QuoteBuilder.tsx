@@ -133,6 +133,9 @@ export function QuoteBuilder({
     onApprove(draft);
   };
 
+  const categorySuggestions = [...new Set(itemSuggestions.map((item) => item.category))];
+  const descriptionSuggestions = [...new Set(itemSuggestions.map((item) => item.description))];
+
   return (
     <section className="split">
       <div className="panel editor">
@@ -214,8 +217,8 @@ export function QuoteBuilder({
 
         <SectionTitle title="작업 항목" hint="최소 1개 항목은 유지됩니다." />
         <div className="items">
-          <datalist id="quote-category-suggestions">{itemSuggestions.map((item) => <option key={`category-${item.category}`} value={item.category} />)}</datalist>
-          <datalist id="quote-description-suggestions">{itemSuggestions.map((item) => <option key={`description-${item.category}-${item.description}`} value={item.description} />)}</datalist>
+          <datalist id="quote-category-suggestions">{categorySuggestions.map((category) => <option key={`category-${category}`} value={category} />)}</datalist>
+          <datalist id="quote-description-suggestions">{descriptionSuggestions.map((description) => <option key={`description-${description}`} value={description} />)}</datalist>
           {draft.items.map((item, index) => (
             <div className="item-row" key={item.id}>
               <input list="quote-category-suggestions" placeholder="구분" value={item.category} onChange={(event) => updateItem(item.id, { category: event.target.value })} />

@@ -1,5 +1,3 @@
-import { popbillAccessHeaders } from "./popbill-access";
-
 export type IssueTaxInvoiceItem = {
   name: string;
   supplyCost: number;
@@ -39,7 +37,8 @@ export async function issueTaxInvoice(payload: IssueTaxInvoicePayload): Promise<
   try {
     const response = await fetch("/api/popbill/issue", {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...popbillAccessHeaders() },
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     });
 
@@ -66,7 +65,7 @@ export async function issueTaxInvoice(payload: IssueTaxInvoicePayload): Promise<
 export async function getTaxInvoiceStatus(popbillInvoiceId: string): Promise<IssueTaxInvoiceResult> {
   try {
     const response = await fetch(`/api/popbill/detail?mgtKey=${encodeURIComponent(popbillInvoiceId)}`, {
-      headers: popbillAccessHeaders()
+      credentials: "same-origin"
     });
     const result = (await response.json()) as IssueTaxInvoiceResult;
     if (!response.ok) {

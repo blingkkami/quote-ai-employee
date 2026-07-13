@@ -1,6 +1,17 @@
-import { timingSafeEqual } from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
+
+export const POPBILL_SESSION_COOKIE = "blingbill_popbill_session";
+const SESSION_CONTEXT = "blingbill-popbill-session-v1";
+const SESSION_MAX_AGE = 60 * 60 * 24 * 400;
 
 export const isAccessTokenConfigured = () => Boolean(process.env.POPBILL_ACCESS_TOKEN);
+
+const safeEqual = (expected, received) => {
+  if (!expected || !received) return false;
+  const expectedBytes = Buffer.from(String(expected), "utf8");
+  const receivedBytes = Buffer.from(String(received), "utf8");
+  return expectedBytes.length === receivedBytes.length && timingSafeEqual(expectedBytes, receivedBytes);
+};
 
 const requestToken = (request) => {
   const headers = request?.headers;
@@ -9,14 +20,34 @@ const requestToken = (request) => {
   return String(headers["x-blingbill-token"] || headers["X-Blingbill-Token"] || "");
 };
 
-export const hasValidAccessToken = (request) => {
+const sessionValue = () => {
   const expected = String(process.env.POPBILL_ACCESS_TOKEN || "");
-  const received = requestToken(request);
-  if (!expected || !received) return false;
-  const expectedBytes = Buffer.from(expected, "utf8");
-  const receivedBytes = Buffer.from(received, "utf8");
-  return expectedBytes.length === receivedBytes.length && timingSafeEqual(expectedBytes, receivedBytes);
+  return expected ? createHmac("sha256", expected).update(SESSION_CONTEXT).digest("base64url") : "";
 };
+
+const requestCookie = (request) => {
+  const headers = request?.headers;
+  if (!headers) return "";
+  const raw = typeof headers.get === "function"
+    ? String(headers.get("cookie") || "")
+    : String(headers.cookie || headers.Cookie || "");
+  const match = raw.split(";").map((part) => part.trim()).find((part) => part.startsWith(`${POPBILL_SESSION_COOKIE}=`));
+  return match ? decodeURIComponent(match.slice(POPBILL_SESSION_COOKIE.length + 1)) : "";
+};
+
+export const hasValidDirectAccessToken = (value) =>
+  safeEqual(String(process.env.POPBILL_ACCESS_TOKEN || ""), String(value || ""));
+
+export const hasValidAccessToken = (request) =>
+  hasValidDirectAccessToken(requestToken(request)) || safeEqual(sessionValue(), requestCookie(request));
+
+export const popbillSessionCookie = () => {
+  const secure = process.env.VERCEL_ENV === "production" || process.env.NODE_ENV === "production";
+  return `${POPBILL_SESSION_COOKIE}=${encodeURIComponent(sessionValue())}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${SESSION_MAX_AGE}${secure ? "; Secure" : ""}`;
+};
+
+export const clearPopbillSessionCookie = () =>
+  `${POPBILL_SESSION_COOKIE}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0`;
 
 export const rejectPopbillAccess = (response, status = 401) => response.status(status).json({
   ok: false,
