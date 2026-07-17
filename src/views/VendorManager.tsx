@@ -7,6 +7,9 @@ import { today } from "../lib/date";
 import { purchasePayLabels } from "../constants";
 import { Status } from "../components/Status";
 import { SectionTitle } from "../components/SectionTitle";
+import { Input } from "../components/Input";
+import { AddressInput } from "../components/AddressInput";
+import { formatBusinessNumber, formatPhoneNumber } from "../lib/input-format";
 
 export function VendorManager({ data, setData }: { data: AppData; setData: React.Dispatch<React.SetStateAction<AppData>> }) {
   const [activeVendorId, setActiveVendorId] = useState(data.vendors[0]?.id ?? "");
@@ -24,6 +27,7 @@ export function VendorManager({ data, setData }: { data: AppData; setData: React
   const [vendorBusinessNumber, setVendorBusinessNumber] = useState("");
   const [vendorContactPerson, setVendorContactPerson] = useState("");
   const [vendorContact, setVendorContact] = useState("");
+  const [vendorAddress, setVendorAddress] = useState("");
   const [purchaseFormOpen, setPurchaseFormOpen] = useState(false);
 
   const activeVendor = data.vendors.find((vendor) => vendor.id === activeVendorId) ?? data.vendors[0];
@@ -36,6 +40,7 @@ export function VendorManager({ data, setData }: { data: AppData; setData: React
     setVendorBusinessNumber("");
     setVendorContactPerson("");
     setVendorContact("");
+    setVendorAddress("");
     setVendorFormOpen(true);
   };
 
@@ -45,6 +50,7 @@ export function VendorManager({ data, setData }: { data: AppData; setData: React
     setVendorBusinessNumber(vendor.businessNumber ?? "");
     setVendorContactPerson(vendor.contactPerson ?? "");
     setVendorContact(vendor.contact ?? "");
+    setVendorAddress(vendor.address ?? "");
     setVendorFormOpen(true);
   };
 
@@ -54,7 +60,8 @@ export function VendorManager({ data, setData }: { data: AppData; setData: React
       name: vendorName.trim(),
       businessNumber: vendorBusinessNumber.trim() || undefined,
       contactPerson: vendorContactPerson.trim() || undefined,
-      contact: vendorContact.trim() || undefined
+      contact: vendorContact.trim() || undefined,
+      address: vendorAddress.trim() || undefined
     };
     if (editingVendorId) {
       patchVendor(editingVendorId, patch);
@@ -162,7 +169,7 @@ export function VendorManager({ data, setData }: { data: AppData; setData: React
         </div>
         <div className="table-wrap">
           <table>
-            <thead><tr><th>매입처</th><th>사업자번호</th><th>담당자</th><th>연락처</th><th>매입 건수</th><th></th></tr></thead>
+            <thead><tr><th>매입처</th><th>사업자번호</th><th>담당자</th><th>연락처</th><th>주소</th><th>매입 건수</th><th></th></tr></thead>
             <tbody>
               {data.vendors.map((vendor) => (
                 <tr key={vendor.id} className={vendor.id === activeVendor?.id ? "selected-row" : ""}>
@@ -170,6 +177,7 @@ export function VendorManager({ data, setData }: { data: AppData; setData: React
                   <td>{vendor.businessNumber || "-"}</td>
                   <td>{vendor.contactPerson || "-"}</td>
                   <td>{vendor.contact || "-"}</td>
+                  <td className="address-cell">{vendor.address || "-"}</td>
                   <td>{data.purchases.filter((purchase) => purchase.vendorId === vendor.id).length}건</td>
                   <td><div className="row-actions"><button className="ghost" onClick={() => openEditVendor(vendor)}>수정</button><button className="icon danger" aria-label="매입처 삭제" title="매입처 삭제" onClick={() => deleteVendor(vendor)}><Trash2 size={15} /></button></div></td>
                 </tr>
@@ -183,11 +191,12 @@ export function VendorManager({ data, setData }: { data: AppData; setData: React
         <div className="panel">
           <SectionTitle title={editingVendorId ? "매입처 수정" : "새 매입처"} />
           <div className="grid two">
-            <label>매입처명<input placeholder="매입처명을 입력하세요" value={vendorName} onChange={(event) => setVendorName(event.target.value)} /></label>
-            <label>사업자번호<input value={vendorBusinessNumber} onChange={(event) => setVendorBusinessNumber(event.target.value)} /></label>
-            <label>담당자<input value={vendorContactPerson} onChange={(event) => setVendorContactPerson(event.target.value)} /></label>
-            <label>연락처<input value={vendorContact} onChange={(event) => setVendorContact(event.target.value)} /></label>
+            <Input label="매입처명" placeholder="매입처명을 입력하세요" value={vendorName} onChange={setVendorName} />
+            <Input label="사업자번호" value={vendorBusinessNumber} inputMode="numeric" maxLength={12} format={formatBusinessNumber} onChange={setVendorBusinessNumber} />
+            <Input label="담당자" value={vendorContactPerson} onChange={setVendorContactPerson} />
+            <Input label="연락처" type="tel" value={vendorContact} inputMode="tel" maxLength={16} autoComplete="tel" format={formatPhoneNumber} onChange={setVendorContact} />
           </div>
+          <AddressInput value={vendorAddress} onChange={setVendorAddress} />
           <div className="actions">
             <button disabled={!vendorName.trim()} onClick={saveVendor}>저장</button>
             <button className="ghost" onClick={() => setVendorFormOpen(false)}>취소</button>

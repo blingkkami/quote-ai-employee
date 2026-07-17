@@ -477,6 +477,76 @@ label {
   font-size: 12px;
 }
 
+.address-field {
+  display: grid;
+  gap: 4px;
+  margin-top: 9px;
+  color: #334155;
+  font-size: 12px;
+}
+
+.address-input-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+}
+
+.address-search-button {
+  min-height: 38px;
+  white-space: nowrap;
+}
+
+.address-search-backdrop {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.48);
+}
+
+.address-search-modal {
+  width: min(100%, 560px);
+  height: min(720px, calc(100vh - 40px));
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+  border: 1px solid #d9e1ec;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 22px 60px rgba(15, 23, 42, 0.24);
+}
+
+.address-search-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid #e5eaf2;
+}
+
+.address-search-head strong {
+  color: #1e293b;
+  font-size: 14px;
+}
+
+.address-search-frame {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.address-cell {
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vendor-page .address-field + .actions {
+  margin-top: 9px;
+}
+
 input,
 select,
 textarea {
@@ -1780,6 +1850,25 @@ button.kpi.active {
 
   .issue-options {
     grid-template-columns: 1fr;
+  }
+
+  .address-input-row {
+    grid-template-columns: 1fr;
+  }
+
+  .address-search-button {
+    justify-self: start;
+  }
+
+  .address-search-backdrop {
+    padding: 0;
+  }
+
+  .address-search-modal {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    border-radius: 0;
   }
 }
 

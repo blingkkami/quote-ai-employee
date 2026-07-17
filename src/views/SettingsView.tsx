@@ -5,6 +5,7 @@ import { SectionTitle } from "../components/SectionTitle";
 import { Input } from "../components/Input";
 import { Status } from "../components/Status";
 import { connectPopbill, disconnectPopbill } from "../lib/popbill-access";
+import { formatBusinessNumber } from "../lib/input-format";
 import { PopbillGuide } from "./PopbillGuide";
 
 const providerLabels: Record<TaxApiProvider, string> = {
@@ -89,7 +90,7 @@ export function SettingsView({ integration, onChange }: { integration: TaxApiInt
         {activeTab === "settings" ? <>
           <div className="grid two">
             <label>연동 업체<select value={draft.provider} onChange={(event) => { patchDraft({ provider: event.target.value as TaxApiProvider, isConnected: false }); setResult(null); }}>{Object.entries(providerLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-            <Input label="공급자 사업자등록번호" value={draft.businessNumber} placeholder="000-00-00000" onChange={(value) => patchDraft({ businessNumber: value })} />
+            <Input label="공급자 사업자등록번호" value={draft.businessNumber} placeholder="000-00-00000" inputMode="numeric" maxLength={12} format={formatBusinessNumber} onChange={(value) => patchDraft({ businessNumber: value })} />
             <Input label="발행 담당자 이메일" value={draft.contactEmail} placeholder="tax@example.com" onChange={(value) => patchDraft({ contactEmail: value })} />
             <Input label="메모" value={draft.memo ?? ""} placeholder="발행 담당자 또는 확인사항" onChange={(value) => patchDraft({ memo: value })} />
           </div>

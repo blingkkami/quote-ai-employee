@@ -7,8 +7,10 @@ import { uid } from "../lib/id";
 import { invoiceLabels, payLabels, statusLabels } from "../constants";
 import { SectionTitle } from "../components/SectionTitle";
 import { Input } from "../components/Input";
+import { AddressInput } from "../components/AddressInput";
 import { TextArea } from "../components/TextArea";
 import { Status } from "../components/Status";
+import { formatBusinessNumber, formatPhoneNumber } from "../lib/input-format";
 
 export function CustomerManager({ data, setData }: { data: AppData; setData: React.Dispatch<React.SetStateAction<AppData>> }) {
   const [activeCustomerId, setActiveCustomerId] = useState(data.customers[0]?.id ?? "");
@@ -129,13 +131,13 @@ export function CustomerManager({ data, setData }: { data: AppData; setData: Rea
               <>
                 <div className="grid two">
                   <Input label="고객명" value={activeCustomer.name} onChange={(value) => patchCustomer(activeCustomer.id, { name: value })} />
-                  <Input label="사업자번호" value={activeCustomer.businessNumber ?? ""} onChange={(value) => patchCustomer(activeCustomer.id, { businessNumber: value })} />
+                  <Input label="사업자번호" value={activeCustomer.businessNumber ?? ""} inputMode="numeric" maxLength={12} format={formatBusinessNumber} onChange={(value) => patchCustomer(activeCustomer.id, { businessNumber: value })} />
                   <Input label="대표자" value={activeCustomer.representativeName ?? ""} onChange={(value) => patchCustomer(activeCustomer.id, { representativeName: value })} />
                   <Input label="담당자" value={activeCustomer.contactPerson} onChange={(value) => patchCustomer(activeCustomer.id, { contactPerson: value })} />
-                  <Input label="연락처" value={activeCustomer.contact} onChange={(value) => patchCustomer(activeCustomer.id, { contact: value })} />
-                  <Input label="이메일" value={activeCustomer.email ?? ""} onChange={(value) => patchCustomer(activeCustomer.id, { email: value })} />
+                  <Input label="연락처" type="tel" value={activeCustomer.contact} inputMode="tel" maxLength={16} autoComplete="tel" format={formatPhoneNumber} onChange={(value) => patchCustomer(activeCustomer.id, { contact: value })} />
+                  <Input label="이메일" type="email" value={activeCustomer.email ?? ""} autoComplete="email" onChange={(value) => patchCustomer(activeCustomer.id, { email: value })} />
                 </div>
-                <Input label="주소" value={activeCustomer.address ?? ""} onChange={(value) => patchCustomer(activeCustomer.id, { address: value })} />
+                <AddressInput value={activeCustomer.address ?? ""} onChange={(value) => patchCustomer(activeCustomer.id, { address: value })} />
                 <div className="grid two">
                   <label>
                     결제 주기

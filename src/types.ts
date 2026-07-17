@@ -95,6 +95,7 @@ export type Vendor = {
   businessNumber?: string;
   contactPerson?: string;
   contact?: string;
+  address?: string;
   hasPurchaseTransaction: boolean;
   memo?: string;
   createdAt: string;

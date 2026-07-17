@@ -5,8 +5,10 @@ import { uid } from "../lib/id";
 import { invoiceLabels } from "../constants";
 import { SectionTitle } from "../components/SectionTitle";
 import { Input } from "../components/Input";
+import { AddressInput } from "../components/AddressInput";
 import { TextArea } from "../components/TextArea";
 import { QuotePreview } from "./QuotePreview";
+import { formatBusinessNumber, formatPhoneNumber } from "../lib/input-format";
 
 export function QuoteBuilder({
   quote,
@@ -197,13 +199,13 @@ export function QuoteBuilder({
             <p className="muted">여기서 수정한 내용은 고객 원본이 아닌 이번 견적과 발행 정보에만 적용됩니다.</p>
             <div className="grid two">
               <Input label="상호" value={draft.customerSnapshot.name} onChange={(value) => updateCustomerSnapshot({ name: value })} />
-              <Input label="사업자번호" value={draft.customerSnapshot.businessNumber ?? ""} onChange={(value) => updateCustomerSnapshot({ businessNumber: value })} />
+              <Input label="사업자번호" value={draft.customerSnapshot.businessNumber ?? ""} inputMode="numeric" maxLength={12} format={formatBusinessNumber} onChange={(value) => updateCustomerSnapshot({ businessNumber: value })} />
               <Input label="대표자" value={draft.customerSnapshot.representativeName ?? ""} onChange={(value) => updateCustomerSnapshot({ representativeName: value })} />
               <Input label="담당자" value={draft.customerSnapshot.contactPerson} onChange={(value) => updateCustomerSnapshot({ contactPerson: value })} />
-              <Input label="연락처" value={draft.customerSnapshot.contact} onChange={(value) => updateCustomerSnapshot({ contact: value })} />
-              <Input label="이메일" value={draft.customerSnapshot.email ?? ""} onChange={(value) => updateCustomerSnapshot({ email: value })} />
+              <Input label="연락처" type="tel" value={draft.customerSnapshot.contact} inputMode="tel" maxLength={16} autoComplete="tel" format={formatPhoneNumber} onChange={(value) => updateCustomerSnapshot({ contact: value })} />
+              <Input label="이메일" type="email" value={draft.customerSnapshot.email ?? ""} autoComplete="email" onChange={(value) => updateCustomerSnapshot({ email: value })} />
             </div>
-            <Input label="주소" value={draft.customerSnapshot.address ?? ""} onChange={(value) => updateCustomerSnapshot({ address: value })} />
+            <AddressInput value={draft.customerSnapshot.address ?? ""} onChange={(value) => updateCustomerSnapshot({ address: value })} />
           </details>
         )}
         <div className="grid two">
