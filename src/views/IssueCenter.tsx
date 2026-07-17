@@ -1,10 +1,12 @@
-import { Download, RefreshCw, Send } from "lucide-react";
+import { useState } from "react";
+import { Download, RefreshCw, Search, Send, X } from "lucide-react";
 import type { Customer, QuoteRecord } from "../types";
 import { money } from "../lib/format";
 import { quoteSubtotal, quoteTotal, quoteVat } from "../lib/quote-calc";
 import { SectionTitle } from "../components/SectionTitle";
 import { Status } from "../components/Status";
 import { today } from "../lib/date";
+import { statusLabels } from "../constants";
 
 const invoiceStatusLabels = {
   pending: "발행 대기",
@@ -13,11 +15,14 @@ const invoiceStatusLabels = {
   failed: "발행 실패"
 } as const;
 
+type InvoiceStatus = keyof typeof invoiceStatusLabels;
+
 export function IssueCenter({
   quote,
   quotes,
   customers,
   onSelectQuote,
+  onClose,
   onApprove,
   onChangeQuote,
   onCustomerUpdate,
@@ -25,10 +30,11 @@ export function IssueCenter({
   onExportCsv,
   isApproving
 }: {
-  quote: QuoteRecord;
+  quote?: QuoteRecord;
   quotes: QuoteRecord[];
   customers: Customer[];
   onSelectQuote: (id: string) => void;
+  onClose: () => void;
   onApprove: (quote: QuoteRecord) => void;
   onChangeQuote: (quote: QuoteRecord) => void;
   onCustomerUpdate: (customer: Customer) => void;
@@ -36,25 +42,88 @@ export function IssueCenter({
   onExportCsv: (quote: QuoteRecord) => void;
   isApproving: boolean;
 }) {
+  const [query, setQuery] = useState("");
+  const [invoiceFilter, setInvoiceFilter] = useState<InvoiceStatus | "all">("all");
+
+  if (!quote) {
+    const normalizedQuery = query.trim().toLocaleLowerCase();
+    const filteredQuotes = quotes.filter((item) => {
+      const invoiceStatus = item.invoiceStatus ?? "pending";
+      if (invoiceFilter !== "all" && invoiceStatus !== invoiceFilter) return false;
+      const customer = item.customerSnapshot ?? customers.find((entry) => entry.id === item.customerId);
+      const searchable = `${item.form.projectName} ${item.id} ${item.form.quoteDate} ${customer?.name ?? ""} ${customer?.businessNumber ?? ""}`.toLocaleLowerCase();
+      return !normalizedQuery || searchable.includes(normalizedQuery);
+    });
+
+    return (
+      <section className="issue-page issue-list-view">
+        <div className="panel issue-list-panel">
+          <div className="toolbar issue-list-head">
+            <SectionTitle title="발행 대상 견적" hint="견적을 선택하면 고객 정보와 발행 옵션이 열립니다." />
+            <div className="issue-list-tools">
+              <div className="search">
+                <Search size={17} />
+                <input aria-label="발행 대상 검색" placeholder="프로젝트, 고객, 견적번호 검색" value={query} onChange={(event) => setQuery(event.target.value)} />
+              </div>
+              <select aria-label="발행 상태 필터" value={invoiceFilter} onChange={(event) => setInvoiceFilter(event.target.value as InvoiceStatus | "all")}>
+                <option value="all">모든 발행 상태</option>
+                {Object.entries(invoiceStatusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="issue-list-meta">
+            <span>{query || invoiceFilter !== "all" ? "조회 결과" : "전체 견적"}</span>
+            <strong>{filteredQuotes.length}건</strong>
+          </div>
+          <div className="issue-quote-list">
+            {filteredQuotes.map((item) => {
+              const customer = item.customerSnapshot ?? customers.find((entry) => entry.id === item.customerId);
+              const invoiceStatus = item.invoiceStatus ?? "pending";
+              return (
+                <button key={item.id} className="issue-quote-row" onClick={() => onSelectQuote(item.id)}>
+                  <span className="issue-quote-main">
+                    <strong>{item.form.projectName || "제목 없음"}</strong>
+                    <small>{customer?.name ?? "고객 미선택"} · {item.form.quoteDate || "견적일 미입력"}</small>
+                  </span>
+                  <span className="issue-quote-amount"><small>합계</small><b>{money(quoteTotal(item))}원</b></span>
+                  <span className="issue-quote-status"><small>승인</small><Status tone={item.status}>{statusLabels[item.status]}</Status></span>
+                  <span className="issue-quote-status"><small>발행</small><Status tone={invoiceStatus}>{invoiceStatusLabels[invoiceStatus]}</Status></span>
+                </button>
+              );
+            })}
+            {!filteredQuotes.length && (
+              <div className="issue-list-empty">
+                <strong>{quotes.length ? "조건에 맞는 견적이 없습니다." : "저장된 견적이 없습니다."}</strong>
+                <span>{quotes.length ? "검색어 또는 발행 상태를 변경해 주세요." : "견적을 저장하면 승인·발행 대상 목록에 표시됩니다."}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   const customer = customers.find((item) => item.id === quote.customerId);
   const invoiceCustomer = quote.customerSnapshot ?? customer;
   const invoiceStatus = quote.invoiceStatus ?? "pending";
   const issuanceComplete = invoiceStatus === "issued" || invoiceStatus === "sent";
-  return (
-    <section className="issue-page">
-      <div className="panel issue-card">
-        <SectionTitle title="발행 대상 선택" hint="견적을 선택한 뒤 고객 정보와 금액을 확인하고 승인·발행하세요." />
-        <label>
-          발행할 견적
-          <select value={quotes.some((item) => item.id === quote.id) ? quote.id : ""} onChange={(event) => onSelectQuote(event.target.value)}>
-            <option value="">견적을 선택하세요</option>
-            {quotes.map((item) => (
-              <option key={item.id} value={item.id}>{item.form.projectName || "제목 없음"} · {money(quoteTotal(item))}원</option>
-            ))}
-          </select>
-        </label>
 
-        <dl className="details">
+  return (
+    <section className="issue-page issue-detail-view">
+      <div className="panel issue-card">
+        <div className="issue-detail-head">
+          <div className="issue-detail-identity">
+            <p>승인·발행 상세 · {quote.form.quoteDate || "견적일 미입력"}</p>
+            <h2>{quote.form.projectName || "제목 없음"}</h2>
+            <span>{invoiceCustomer?.name ?? "고객 미선택"} · {money(quoteTotal(quote))}원</span>
+          </div>
+          <div className="issue-detail-actions">
+            <Status tone={invoiceStatus}>{invoiceStatusLabels[invoiceStatus]}</Status>
+            <button className="ghost" onClick={onClose}><X size={16} /> 목록으로</button>
+          </div>
+        </div>
+
+        <dl className="details issue-details">
           <dt>고객</dt><dd>{invoiceCustomer?.name ?? "고객 미선택"}</dd>
           <dt>사업자번호</dt><dd>{invoiceCustomer?.businessNumber ?? "-"}</dd>
           <dt>프로젝트</dt><dd>{quote.form.projectName || "-"}</dd>
@@ -118,7 +187,7 @@ export function IssueCenter({
           <button disabled={issuanceComplete || isApproving || !customer || quoteTotal(quote) < 1} onClick={() => onApprove(quote)}>
             <Send size={17} /> {issuanceComplete ? "발행 완료" : isApproving ? "처리 중" : quote.status === "approved" ? "발행 다시 시도" : "승인 및 발행"}
           </button>
-          <button className="ghost" disabled={!quotes.some((item) => item.id === quote.id)} onClick={() => onExportCsv(quote)}><Download size={17} /> 이 견적 CSV</button>
+          <button className="ghost" onClick={() => onExportCsv(quote)}><Download size={17} /> 이 견적 CSV</button>
           <button className="ghost" disabled={!quote.popbillInvoiceId || isApproving} onClick={() => onRefreshStatus(quote)}><RefreshCw size={17} /> 발행 상태 조회</button>
         </div>
       </div>

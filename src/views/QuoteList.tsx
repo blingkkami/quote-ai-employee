@@ -7,6 +7,7 @@ import { quoteRecordDate } from "../lib/quote-date";
 import { payLabels, statusLabels } from "../constants";
 import { Status } from "../components/Status";
 import { DataTable } from "../components/DataTable";
+import { SectionTitle } from "../components/SectionTitle";
 
 export function QuoteList({
   quotes,
@@ -97,8 +98,12 @@ export function QuoteList({
   };
 
   return (
-    <section className="panel">
-      <div className="toolbar">
+    <section className="panel quote-list-page">
+      <div className="quote-list-head">
+        <SectionTitle title="전체 견적" hint="검색과 필터로 견적을 찾은 뒤 열기·복제·삭제할 수 있습니다." />
+        <strong>{filtered.length}건</strong>
+      </div>
+      <div className="toolbar quote-filter-bar">
         <div className="search">
           <Search size={17} />
           <input
@@ -125,7 +130,7 @@ export function QuoteList({
         <input aria-label="견적일 시작" type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} />
         <input aria-label="견적일 종료" type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} />
         <span className="search-shortcut">{navigator.platform.includes("Mac") ? "⌘K" : "Ctrl K"}</span>
-        <span className="search-count">{query ? `${filtered.length}건 / ${quotes.length}건` : `전체 ${quotes.length}건`}</span>
+        <span className="search-count">전체 {quotes.length}건</span>
       </div>
       {filtered.length > 0 ? (
         <DataTable

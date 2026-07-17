@@ -223,12 +223,13 @@ export function QuoteBuilder({
           <datalist id="quote-description-suggestions">{descriptionSuggestions.map((description) => <option key={`description-${description}`} value={description} />)}</datalist>
           {draft.items.map((item, index) => (
             <div className="item-row" key={item.id}>
-              <input list="quote-category-suggestions" placeholder="구분" value={item.category} onChange={(event) => updateItem(item.id, { category: event.target.value })} />
-              <input list="quote-description-suggestions" placeholder="내용" value={item.description} onChange={(event) => updateItem(item.id, { description: event.target.value })} />
-              <input type="number" min="0" value={item.price || ""} onChange={(event) => updateItem(item.id, { price: Number(event.target.value) })} />
+              <input aria-label={`항목 ${index + 1} 구분`} list="quote-category-suggestions" placeholder="구분" value={item.category} onChange={(event) => updateItem(item.id, { category: event.target.value })} />
+              <input aria-label={`항목 ${index + 1} 내용`} list="quote-description-suggestions" placeholder="내용" value={item.description} onChange={(event) => updateItem(item.id, { description: event.target.value })} />
+              <input aria-label={`항목 ${index + 1} 금액`} type="number" min="0" value={item.price || ""} onChange={(event) => updateItem(item.id, { price: Number(event.target.value) })} />
               <button
                 className="icon"
                 title="항목 삭제"
+                aria-label={`항목 ${index + 1} 삭제`}
                 disabled={draft.items.length === 1}
                 onClick={() => setDraft({ ...draft, items: draft.items.filter((_, rowIndex) => rowIndex !== index) })}
               >

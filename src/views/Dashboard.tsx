@@ -87,8 +87,10 @@ export function Dashboard({ data, totals }: { data: AppData; totals: DashboardTo
       <div className="dashboard-head">
         <SectionTitle title="대시보드 보기" hint={`${period === "month" ? "이번 달" : "올해"} 기준 수치`} />
         <div className="top-actions">
-          <button className={period === "month" ? "" : "ghost"} onClick={() => setPeriod("month")}>월간</button>
-          <button className={period === "year" ? "" : "ghost"} onClick={() => setPeriod("year")}>연간</button>
+          <div className="segmented dashboard-period-mode" aria-label="대시보드 조회 기간">
+            <button aria-pressed={period === "month"} className={period === "month" ? "selected" : ""} onClick={() => setPeriod("month")}>월간</button>
+            <button aria-pressed={period === "year"} className={period === "year" ? "selected" : ""} onClick={() => setPeriod("year")}>연간</button>
+          </div>
           {period === "month" ? (
             <input aria-label="대시보드 조회 월" type="month" value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)} />
           ) : (
@@ -101,7 +103,7 @@ export function Dashboard({ data, totals }: { data: AppData; totals: DashboardTo
 
       <div className="kpis">
         {cards.map(([key, label, value]) => (
-          <button className={`kpi ${detail === key ? "active" : ""}`} key={key} onClick={() => setDetail(String(key))}>
+          <button aria-pressed={detail === key} className={`kpi ${detail === key ? "active" : ""}`} key={key} onClick={() => setDetail(String(key))}>
             <span>{label}</span>
             <strong>{typeof value === "number" && label !== "미수 업체" ? `${money(value)}원` : value}</strong>
           </button>

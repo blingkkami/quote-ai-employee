@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { HandCoins, Search, WalletCards } from "lucide-react";
+import { HandCoins, Search, WalletCards, X } from "lucide-react";
 import type { AppData, PaymentStatus } from "../types";
 import { money } from "../lib/format";
 import { today } from "../lib/date";
@@ -89,6 +89,16 @@ export function Ledger({
     setPaymentAmount("");
   };
 
+  const hasFilters = Boolean(query || partyId !== "all" || recordType !== "all" || paymentStatus !== "all" || dateFrom || dateTo);
+  const clearFilters = () => {
+    setQuery("");
+    setPartyId("all");
+    setRecordType("all");
+    setPaymentStatus("all");
+    setDateFrom("");
+    setDateTo("");
+  };
+
   const rows = [
     ...filteredSales.map((sale) => {
       const quote = data.quotes.find((item) => item.id === sale.quoteId);
@@ -99,12 +109,9 @@ export function Ledger({
         type: "매출",
         party: customer?.name ?? "-",
         description: quote?.form.projectName ?? "-",
-        sale: sale.amount,
-        paid: sale.paidAmount,
-        unpaid: Math.max(0, sale.amount - sale.paidAmount),
-        purchase: 0,
-        purchasePaid: 0,
-        purchaseUnpaid: 0,
+        amount: sale.amount,
+        settled: sale.paidAmount,
+        balance: Math.max(0, sale.amount - sale.paidAmount),
         status: <Status tone={sale.paymentStatus}>{payLabels[sale.paymentStatus]}</Status>,
         history: sale.payments,
         action: <button className="ghost" disabled={sale.paymentStatus === "paid"} onClick={() => openPayment({ kind: "sale", id: sale.id }, Math.max(0, sale.amount - sale.paidAmount))}>수금 입력</button>
@@ -119,12 +126,9 @@ export function Ledger({
         type: "매입",
         party: vendor?.name ?? "-",
         description: purchase.items.map((item) => item.description).join(", ") || "-",
-        sale: 0,
-        paid: 0,
-        unpaid: 0,
-        purchase: purchase.totalAmount,
-        purchasePaid: paid,
-        purchaseUnpaid: Math.max(0, purchase.totalAmount - paid),
+        amount: purchase.totalAmount,
+        settled: paid,
+        balance: Math.max(0, purchase.totalAmount - paid),
         status: <Status tone={purchase.paymentStatus}>{purchasePayLabels[purchase.paymentStatus]}</Status>,
         history: purchase.payments,
         action: <button className="ghost" disabled={purchase.paymentStatus === "paid"} onClick={() => openPayment({ kind: "purchase", id: purchase.id }, Math.max(0, purchase.totalAmount - paid))}>지급 입력</button>
@@ -135,7 +139,10 @@ export function Ledger({
   return (
     <section className="ledger-page">
       <div className="panel">
-        <SectionTitle title="통합 거래처 원장" hint="매출·입금·미수와 매입·지급·미지급을 같은 기준으로 조회합니다." />
+        <div className="ledger-head">
+          <SectionTitle title="통합 거래처 원장" hint="매출·매입과 실제 정산 내역을 같은 기준으로 조회합니다." />
+          <strong>{rows.length}건</strong>
+        </div>
         <div className="filter-bar">
           <div className="search">
             <Search size={17} />
@@ -154,6 +161,7 @@ export function Ledger({
           </select>
           <input aria-label="원장 시작일" type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} />
           <input aria-label="원장 종료일" type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} />
+          {hasFilters && <button className="ghost" onClick={clearFilters}><X size={15} /> 필터 초기화</button>}
         </div>
         <div className="kpis ledger-kpis">
           <div className="kpi"><span>매출</span><strong>{money(totals.sales)}원</strong></div>
@@ -167,32 +175,36 @@ export function Ledger({
 
       {paymentTarget && activeRecord && (
         <div className="panel payment-entry">
-          <SectionTitle title={paymentTarget.kind === "sale" ? "부분 수금 입력" : "부분 지급 입력"} hint="실제 거래일과 금액이 원장과 대시보드에 즉시 반영됩니다." />
+          <div className="toolbar ledger-payment-head">
+            <SectionTitle title={paymentTarget.kind === "sale" ? "부분 수금 입력" : "부분 지급 입력"} hint="실제 거래일과 금액이 원장과 대시보드에 즉시 반영됩니다." />
+            <button className="ghost" onClick={() => setPaymentTarget(undefined)}><X size={15} /> 닫기</button>
+          </div>
           <div className="grid payment-grid">
             <label>{paymentTarget.kind === "sale" ? "입금일" : "지급일"}<input type="date" value={paymentDate} onChange={(event) => setPaymentDate(event.target.value)} /></label>
             <label>{paymentTarget.kind === "sale" ? "입금액" : "지급액"}<input type="number" min="1" max={activeRemaining} value={paymentAmount} onChange={(event) => setPaymentAmount(event.target.value)} /></label>
             <div className="actions">
               <button disabled={!paymentDate || Number(paymentAmount) < 1} onClick={submitPayment}>{paymentTarget.kind === "sale" ? <HandCoins size={16} /> : <WalletCards size={16} />} 반영</button>
-              <button className="ghost" onClick={() => setPaymentTarget(undefined)}>취소</button>
             </div>
           </div>
         </div>
       )}
 
       <div className="panel ledger-table">
+        <div className="ledger-table-head">
+          <strong>거래 내역</strong>
+          <span>최신 거래순 · {rows.length}건</span>
+        </div>
         <div className="table-wrap">
           <table>
-            <thead><tr><th>일자</th><th>구분</th><th>거래처</th><th>내용</th><th>매출</th><th>입금</th><th>미수</th><th>매입</th><th>지급</th><th>미지급</th><th>상태</th><th>내역</th><th></th></tr></thead>
+            <thead><tr><th>일자</th><th>구분</th><th>거래처</th><th>내용</th><th>거래액</th><th>정산액</th><th>잔액</th><th>상태</th><th>정산 내역</th><th></th></tr></thead>
             <tbody>
-              {rows.map((row) => <tr key={row.key}>
-                <td>{row.date}</td><td>{row.type}</td><td>{row.party}</td><td>{row.description}</td>
-                <td>{row.sale ? `${money(row.sale)}원` : "-"}</td><td>{row.paid ? `${money(row.paid)}원` : "-"}</td><td>{row.unpaid ? `${money(row.unpaid)}원` : "-"}</td>
-                <td>{row.purchase ? `${money(row.purchase)}원` : "-"}</td><td>{row.purchasePaid ? `${money(row.purchasePaid)}원` : "-"}</td><td>{row.purchaseUnpaid ? `${money(row.purchaseUnpaid)}원` : "-"}</td>
-                <td>{row.status}</td><td>{row.history.length ? row.history.map((payment, index) => <span className="history-line" key={`${row.key}-${index}`}>{payment.date} · {money(payment.amount)}원</span>) : <span className="muted">내역 없음</span>}</td><td>{row.action}</td>
+              {rows.map((row) => <tr className={`ledger-row ${row.type === "매출" ? "sale" : "purchase"}`} key={row.key}>
+                <td>{row.date}</td><td><span className={`ledger-type ${row.type === "매출" ? "sale" : "purchase"}`}>{row.type}</span></td><td>{row.party}</td><td>{row.description}</td>
+                <td>{money(row.amount)}원</td><td>{money(row.settled)}원</td><td>{money(row.balance)}원</td>
+                <td>{row.status}</td><td>{row.history.length ? <details className="ledger-history"><summary>{row.history.length}건</summary>{row.history.map((payment, index) => <span className="history-line" key={`${row.key}-${index}`}>{payment.date} · {money(payment.amount)}원</span>)}</details> : <span className="muted">없음</span>}</td><td>{row.action}</td>
               </tr>)}
-              {!rows.length && <tr><td colSpan={13} className="empty">조건에 맞는 거래가 없습니다.</td></tr>}
+              {!rows.length && <tr><td colSpan={10} className="empty">조건에 맞는 거래가 없습니다.</td></tr>}
             </tbody>
-            {!!rows.length && <tfoot><tr><th colSpan={4}>조회 합계</th><th>{money(totals.sales)}원</th><th>{money(totals.paid)}원</th><th>{money(totals.sales - totals.paid)}원</th><th>{money(totals.purchases)}원</th><th>{money(totals.purchasePaid)}원</th><th>{money(totals.purchases - totals.purchasePaid)}원</th><th colSpan={3}></th></tr></tfoot>}
           </table>
         </div>
       </div>

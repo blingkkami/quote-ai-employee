@@ -87,29 +87,29 @@ export function SettingsView({ integration, onChange }: { integration: TaxApiInt
           <button role="tab" aria-selected={activeTab === "guide"} className={activeTab === "guide" ? "active" : ""} onClick={() => setActiveTab("guide")}><BookOpen size={16} /> 등록·발행 가이드</button>
         </div>
 
-        {activeTab === "settings" ? <>
-          <div className="grid two">
-            <label>연동 업체<select value={draft.provider} onChange={(event) => { patchDraft({ provider: event.target.value as TaxApiProvider, isConnected: false }); setResult(null); }}>{Object.entries(providerLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-            <Input label="공급자 사업자등록번호" value={draft.businessNumber} placeholder="000-00-00000" inputMode="numeric" maxLength={12} format={formatBusinessNumber} onChange={(value) => patchDraft({ businessNumber: value })} />
-            <Input label="발행 담당자 이메일" value={draft.contactEmail} placeholder="tax@example.com" onChange={(value) => patchDraft({ contactEmail: value })} />
-            <Input label="메모" value={draft.memo ?? ""} placeholder="발행 담당자 또는 확인사항" onChange={(value) => patchDraft({ memo: value })} />
+        {activeTab === "settings" ? <div className="settings-content">
+          <div className="settings-section">
+            <SectionTitle title="기본 정보" hint="세금계산서를 발행할 공급자 정보를 입력합니다." />
+            <div className="grid two">
+              <label>연동 업체<select value={draft.provider} onChange={(event) => { patchDraft({ provider: event.target.value as TaxApiProvider, isConnected: false }); setResult(null); }}><option value="popbill">팝빌</option><option value="barobill" disabled>바로빌 · 준비 중</option><option value="hometax" disabled>홈택스 · 준비 중</option></select></label>
+              <Input label="공급자 사업자등록번호" value={draft.businessNumber} placeholder="000-00-00000" inputMode="numeric" maxLength={12} format={formatBusinessNumber} onChange={(value) => patchDraft({ businessNumber: value })} />
+              <Input label="발행 담당자 이메일" value={draft.contactEmail} placeholder="tax@example.com" onChange={(value) => patchDraft({ contactEmail: value })} />
+              <Input label="메모" value={draft.memo ?? ""} placeholder="발행 담당자 또는 확인사항" onChange={(value) => patchDraft({ memo: value })} />
+            </div>
           </div>
 
           <div className="secure-box">
-            <SectionTitle title="Vercel 서버 인증정보" hint="보안키는 최초 연결할 때만 사용하고 저장하지 않습니다. 연결 후에는 서버가 발급한 보안 쿠키로 자동 인증합니다." />
+            <SectionTitle title="팝빌 최초 연결" hint="팝빌 등록 과정에서 발급받은 보안키를 한 번 입력하면 이후에는 다시 입력하지 않습니다." />
             <Input
               label="발행 보안키"
               type="password"
               value={accessToken}
-              placeholder="최초 연결 시 POPBILL_ACCESS_TOKEN 입력"
+              placeholder="발급받은 보안키 입력"
               onChange={(value) => {
                 setAccessToken(value);
                 setResult(null);
               }}
             />
-            <div className="env-list">
-              <code>POPBILL_LINK_ID</code><code>POPBILL_SECRET_KEY</code><code>POPBILL_CORP_NUM</code><code>POPBILL_CORP_NAME</code><code>POPBILL_CEO_NAME</code><code>POPBILL_USER_ID</code><code>POPBILL_ACCESS_TOKEN</code>
-            </div>
             {result && <div className={result.configured ? "notice" : "alert danger-alert"}>{result.message}{result.environment ? ` 현재 ${result.environment === "production" ? "운영" : "테스트"} 환경입니다.` : ""}</div>}
           </div>
 
@@ -119,12 +119,12 @@ export function SettingsView({ integration, onChange }: { integration: TaxApiInt
             <span>마지막 실제 발행: {draft.lastIssuedAt ? new Date(draft.lastIssuedAt).toLocaleString("ko-KR") : "없음"}</span>
           </div>
 
-          <div className="actions">
+          <div className="actions settings-actions">
             <button onClick={checkConnection} disabled={checking}><RefreshCw size={16} /> {checking ? "확인 중" : accessToken ? "연결하고 상태 확인" : "연결 상태 확인"}</button>
-            <button className="ghost" onClick={disconnectConnection} disabled={checking}><LogOut size={16} /> 이 브라우저 연결 해제</button>
             <button className="ghost" onClick={saveSettings}><Save size={16} /> 기본정보 저장</button>
+            <button className="ghost" onClick={disconnectConnection} disabled={checking}><LogOut size={16} /> 이 브라우저 연결 해제</button>
           </div>
-        </> : <PopbillGuide onUseAccessToken={(token) => { setAccessToken(token); setResult(null); setActiveTab("settings"); }} />}
+        </div> : <PopbillGuide onUseAccessToken={(token) => { setAccessToken(token); setResult(null); setActiveTab("settings"); }} />}
       </div>
     </section>
   );

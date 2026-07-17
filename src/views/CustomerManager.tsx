@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Plus, Search, Trash2 } from "lucide-react";
+import { Building2, Check, Pencil, Phone, Plus, Search, Trash2, UserRound, X } from "lucide-react";
 import type { AppData, Customer, InvoicePreference } from "../types";
 import { money } from "../lib/format";
 import { quoteTotal } from "../lib/quote-calc";
@@ -13,17 +13,27 @@ import { Status } from "../components/Status";
 import { formatBusinessNumber, formatPhoneNumber } from "../lib/input-format";
 
 export function CustomerManager({ data, setData }: { data: AppData; setData: React.Dispatch<React.SetStateAction<AppData>> }) {
-  const [activeCustomerId, setActiveCustomerId] = useState(data.customers[0]?.id ?? "");
+  const [activeCustomerId, setActiveCustomerId] = useState<string | null>(null);
   const [customerSearch, setCustomerSearch] = useState("");
   const [editMode, setEditMode] = useState(false);
-  const activeCustomer = data.customers.find((customer) => customer.id === activeCustomerId) ?? data.customers[0];
+  const [newCustomerId, setNewCustomerId] = useState<string | null>(null);
+  const [returnCustomerId, setReturnCustomerId] = useState<string | null>(null);
+  const activeCustomer = activeCustomerId
+    ? data.customers.find((customer) => customer.id === activeCustomerId)
+    : undefined;
+  const isCreatingCustomer = activeCustomer?.id === newCustomerId;
   const customerQuotes = data.quotes.filter((quote) => quote.customerId === activeCustomer?.id);
   const customerSales = data.sales.filter((sale) => sale.customerId === activeCustomer?.id);
   const filteredCustomers = data.customers.filter((customer) =>
-    `${customer.name} ${customer.contactPerson} ${customer.businessNumber ?? ""}`.toLowerCase().includes(customerSearch.toLowerCase())
+    `${customer.name} ${customer.contactPerson} ${customer.businessNumber ?? ""} ${customer.contact} ${customer.email ?? ""}`.toLowerCase().includes(customerSearch.toLowerCase())
   );
 
   const addCustomer = () => {
+    if (newCustomerId && data.customers.some((customer) => customer.id === newCustomerId)) {
+      setActiveCustomerId(newCustomerId);
+      setEditMode(true);
+      return;
+    }
     const now = new Date().toISOString();
     const customer: Customer = {
       id: uid("cus"),
@@ -43,8 +53,38 @@ export function CustomerManager({ data, setData }: { data: AppData; setData: Rea
       ...prev,
       customers: [customer, ...prev.customers]
     }));
+    setReturnCustomerId(activeCustomer?.id ?? null);
+    setNewCustomerId(customer.id);
     setActiveCustomerId(customer.id);
     setEditMode(true);
+  };
+  const cancelCustomerRegistration = () => {
+    if (!newCustomerId) return;
+    const remaining = data.customers.filter((customer) => customer.id !== newCustomerId);
+    const nextCustomerId = remaining.some((customer) => customer.id === returnCustomerId)
+      ? returnCustomerId
+      : remaining[0]?.id ?? null;
+    setData((prev) => ({
+      ...prev,
+      customers: prev.customers.filter((customer) => customer.id !== newCustomerId)
+    }));
+    setNewCustomerId(null);
+    setReturnCustomerId(null);
+    setActiveCustomerId(nextCustomerId);
+    setEditMode(false);
+  };
+  const completeCustomerRegistration = () => {
+    if (!activeCustomer?.name.trim()) {
+      window.alert("고객명을 입력해 주세요.");
+      return;
+    }
+    setNewCustomerId(null);
+    setReturnCustomerId(null);
+    setEditMode(false);
+  };
+  const closeCustomerDetail = () => {
+    setActiveCustomerId(null);
+    setEditMode(false);
   };
   const patchCustomer = (id: string, patch: Partial<Customer>) => {
     setData((prev) => ({
@@ -61,9 +101,8 @@ export function CustomerManager({ data, setData }: { data: AppData; setData: Rea
       return;
     }
     if (!window.confirm(`'${customer.name}' 고객을 삭제할까요?`)) return;
-    const remaining = data.customers.filter((item) => item.id !== customer.id);
     setData((prev) => ({ ...prev, customers: prev.customers.filter((item) => item.id !== customer.id) }));
-    setActiveCustomerId(remaining[0]?.id ?? "");
+    setActiveCustomerId(null);
   };
   const stageFor = (customer: Customer) => {
     if (customer.unpaidAmount > 0) return "미수 관리";
@@ -75,7 +114,7 @@ export function CustomerManager({ data, setData }: { data: AppData; setData: Rea
     customer.unpaidAmount > 0 ? "unpaid" : customer.totalSales > 0 ? "approved" : "pending";
 
   return (
-    <section className="crm">
+    <section className={`crm ${activeCustomer ? "" : "list-only"}`}>
       <div className="crm-sidebar panel">
         <div className="toolbar">
           <div className="search">
@@ -84,43 +123,90 @@ export function CustomerManager({ data, setData }: { data: AppData; setData: Rea
           </div>
           <button onClick={addCustomer}><Plus size={17} /> 고객</button>
         </div>
+        <div className="crm-list-meta">
+          <span>{customerSearch ? "검색 결과" : "전체 고객"}</span>
+          <strong>{filteredCustomers.length}명</strong>
+        </div>
         <div className="crm-list">
           {filteredCustomers.map((customer) => {
             const quoteCount = data.quotes.filter((quote) => quote.customerId === customer.id).length;
             return (
-              <button key={customer.id} className={`crm-card ${activeCustomer?.id === customer.id ? "active" : ""}`} onClick={() => { setActiveCustomerId(customer.id); setEditMode(false); }}>
+              <button
+                key={customer.id}
+                className={`crm-card ${activeCustomer?.id === customer.id ? "active" : ""}`}
+                onClick={() => {
+                  if (newCustomerId && customer.id !== newCustomerId) {
+                    window.alert("신규 고객 등록을 완료하거나 취소한 뒤 다른 고객을 선택해 주세요.");
+                    return;
+                  }
+                  setActiveCustomerId(customer.id);
+                  setEditMode(false);
+                }}
+              >
                 <span className="crm-card-head">
                   <strong>{customer.name}</strong>
                   <Status tone={toneFor(customer)}>{stageFor(customer)}</Status>
                 </span>
-                <span>{customer.contactPerson || "담당자 미입력"} · {customer.contact || "연락처 미입력"}</span>
+                <span className="crm-card-subline"><Building2 size={14} /> {customer.businessNumber || "사업자번호 미입력"}</span>
+                <span className="crm-card-subline"><UserRound size={14} /> {customer.contactPerson || "담당자 미입력"}<i /><Phone size={14} /> {customer.contact || "연락처 미입력"}</span>
                 <span className="crm-metrics">
-                  <b>{money(customer.totalSales)}원</b>
-                  <em>{quoteCount}건</em>
-                  <em>미수 {money(customer.unpaidAmount)}원</em>
+                  <span><small>누적 매출</small><b>{money(customer.totalSales)}원</b></span>
+                  <span><small>견적</small><b>{quoteCount}건</b></span>
+                  <span><small>미수금</small><b>{money(customer.unpaidAmount)}원</b></span>
                 </span>
               </button>
             );
           })}
+          {!filteredCustomers.length && (
+            <div className="crm-list-empty">
+              <Search size={20} />
+              <span>{customerSearch ? "검색된 고객이 없습니다." : "등록된 고객이 없습니다."}</span>
+            </div>
+          )}
         </div>
       </div>
       {activeCustomer && (
         <div className="crm-detail">
           <div className="panel crm-profile">
             <div className="crm-profile-head">
-              <div>
-                <p>{stageFor(activeCustomer)}</p>
+              <div className="crm-profile-identity">
+                <p>{stageFor(activeCustomer)} · {activeCustomer.businessNumber || "사업자번호 미입력"}</p>
                 <h2>{activeCustomer.name}</h2>
+                <span>{activeCustomer.contactPerson || "담당자 미입력"} · {activeCustomer.contact || "연락처 미입력"}</span>
               </div>
-              <Status tone={toneFor(activeCustomer)}>
-                {activeCustomer.unpaidAmount > 0 ? "수금 필요" : "정상"}
-              </Status>
-              <button className={editMode ? "" : "ghost"} onClick={() => setEditMode((prev) => !prev)}>
-                {editMode ? "완료" : "수정"}
-              </button>
-              <button className="icon danger" aria-label="고객 삭제" title="고객 삭제" onClick={() => deleteCustomer(activeCustomer)}>
-                <Trash2 size={16} />
-              </button>
+              <div className="crm-profile-actions">
+                {editMode ? (
+                  isCreatingCustomer ? (
+                    <>
+                      <button className="ghost" onClick={cancelCustomerRegistration}>
+                        <X size={16} /> 등록 취소
+                      </button>
+                      <button onClick={completeCustomerRegistration}>
+                        <Check size={16} /> 등록 완료
+                      </button>
+                    </>
+                  ) : (
+                    <button className="ghost" onClick={() => setEditMode(false)}>
+                      <X size={16} /> 편집 닫기
+                    </button>
+                  )
+                ) : (
+                  <>
+                    <Status tone={toneFor(activeCustomer)}>
+                      {activeCustomer.unpaidAmount > 0 ? "수금 필요" : "정상"}
+                    </Status>
+                    <button className="ghost" onClick={() => setEditMode(true)}>
+                      <Pencil size={16} /> 수정
+                    </button>
+                    <button className="icon danger" aria-label="고객 삭제" title="고객 삭제" onClick={() => deleteCustomer(activeCustomer)}>
+                      <Trash2 size={16} />
+                    </button>
+                    <button className="ghost" onClick={closeCustomerDetail}>
+                      <X size={16} /> 닫기
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
             <div className="kpis mini">
               <div className="kpi"><span>누적 매출</span><strong>{money(activeCustomer.totalSales)}원</strong></div>
@@ -128,48 +214,59 @@ export function CustomerManager({ data, setData }: { data: AppData; setData: Rea
               <div className="kpi"><span>견적 수</span><strong>{customerQuotes.length}건</strong></div>
             </div>
             {editMode ? (
-              <>
-                <div className="grid two">
-                  <Input label="고객명" value={activeCustomer.name} onChange={(value) => patchCustomer(activeCustomer.id, { name: value })} />
-                  <Input label="사업자번호" value={activeCustomer.businessNumber ?? ""} inputMode="numeric" maxLength={12} format={formatBusinessNumber} onChange={(value) => patchCustomer(activeCustomer.id, { businessNumber: value })} />
-                  <Input label="대표자" value={activeCustomer.representativeName ?? ""} onChange={(value) => patchCustomer(activeCustomer.id, { representativeName: value })} />
-                  <Input label="담당자" value={activeCustomer.contactPerson} onChange={(value) => patchCustomer(activeCustomer.id, { contactPerson: value })} />
-                  <Input label="연락처" type="tel" value={activeCustomer.contact} inputMode="tel" maxLength={16} autoComplete="tel" format={formatPhoneNumber} onChange={(value) => patchCustomer(activeCustomer.id, { contact: value })} />
-                  <Input label="이메일" type="email" value={activeCustomer.email ?? ""} autoComplete="email" onChange={(value) => patchCustomer(activeCustomer.id, { email: value })} />
+              <div className="customer-edit-form">
+                <div className="customer-edit-section">
+                  <h3>기본 정보</h3>
+                  <div className="grid two">
+                    <Input label="고객명" value={activeCustomer.name} onChange={(value) => patchCustomer(activeCustomer.id, { name: value })} />
+                    <Input label="사업자번호" value={activeCustomer.businessNumber ?? ""} inputMode="numeric" maxLength={12} format={formatBusinessNumber} onChange={(value) => patchCustomer(activeCustomer.id, { businessNumber: value })} />
+                    <Input label="대표자" value={activeCustomer.representativeName ?? ""} onChange={(value) => patchCustomer(activeCustomer.id, { representativeName: value })} />
+                    <Input label="담당자" value={activeCustomer.contactPerson} onChange={(value) => patchCustomer(activeCustomer.id, { contactPerson: value })} />
+                  </div>
                 </div>
-                <AddressInput value={activeCustomer.address ?? ""} onChange={(value) => patchCustomer(activeCustomer.id, { address: value })} />
-                <div className="grid two">
-                  <label>
-                    결제 주기
-                    <select value={activeCustomer.paymentCycle} onChange={(event) => patchCustomer(activeCustomer.id, { paymentCycle: event.target.value as Customer["paymentCycle"] })}>
-                      <option value="per_transaction">건별 정산</option>
-                      <option value="monthly_batch">월말 정산</option>
-                    </select>
-                  </label>
-                  <label>
-                    기본 발행 방식
-                    <select value={activeCustomer.invoicePreference} onChange={(event) => patchCustomer(activeCustomer.id, { invoicePreference: event.target.value as InvoicePreference })}>
-                      {Object.entries(invoiceLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                    </select>
-                  </label>
+                <div className="customer-edit-section">
+                  <h3>연락처</h3>
+                  <div className="grid two">
+                    <Input label="연락처" type="tel" value={activeCustomer.contact} inputMode="tel" maxLength={16} autoComplete="tel" format={formatPhoneNumber} onChange={(value) => patchCustomer(activeCustomer.id, { contact: value })} />
+                    <Input label="이메일" type="email" value={activeCustomer.email ?? ""} autoComplete="email" onChange={(value) => patchCustomer(activeCustomer.id, { email: value })} />
+                  </div>
+                  <AddressInput value={activeCustomer.address ?? ""} onChange={(value) => patchCustomer(activeCustomer.id, { address: value })} />
                 </div>
-                <TextArea label="CRM 메모" value={activeCustomer.memo ?? ""} onChange={(value) => patchCustomer(activeCustomer.id, { memo: value })} />
-              </>
+                <div className="customer-edit-section">
+                  <h3>거래 설정</h3>
+                  <div className="grid two">
+                    <label>
+                      결제 주기
+                      <select value={activeCustomer.paymentCycle} onChange={(event) => patchCustomer(activeCustomer.id, { paymentCycle: event.target.value as Customer["paymentCycle"] })}>
+                        <option value="per_transaction">건별 정산</option>
+                        <option value="monthly_batch">월말 정산</option>
+                      </select>
+                    </label>
+                    <label>
+                      기본 발행 방식
+                      <select value={activeCustomer.invoicePreference} onChange={(event) => patchCustomer(activeCustomer.id, { invoicePreference: event.target.value as InvoicePreference })}>
+                        {Object.entries(invoiceLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                      </select>
+                    </label>
+                  </div>
+                  <TextArea label="CRM 메모" value={activeCustomer.memo ?? ""} onChange={(value) => patchCustomer(activeCustomer.id, { memo: value })} />
+                </div>
+              </div>
             ) : (
-              <dl className="details">
-                <dt>사업자번호</dt><dd>{activeCustomer.businessNumber || "-"}</dd>
-                <dt>대표자</dt><dd>{activeCustomer.representativeName || "-"}</dd>
-                <dt>담당자</dt><dd>{activeCustomer.contactPerson || "-"}</dd>
-                <dt>연락처</dt><dd>{activeCustomer.contact || "-"}</dd>
-                <dt>이메일</dt><dd>{activeCustomer.email || "-"}</dd>
-                <dt>주소</dt><dd>{activeCustomer.address || "-"}</dd>
-                <dt>결제 주기</dt><dd>{activeCustomer.paymentCycle === "monthly_batch" ? "월말 정산" : "건별 정산"}</dd>
-                <dt>기본 발행 방식</dt><dd>{invoiceLabels[activeCustomer.invoicePreference]}</dd>
-                <dt>CRM 메모</dt><dd>{activeCustomer.memo || "-"}</dd>
-              </dl>
+              <div className="customer-info-grid">
+                <div className="customer-info-item"><span>사업자번호</span><strong>{activeCustomer.businessNumber || "-"}</strong></div>
+                <div className="customer-info-item"><span>대표자</span><strong>{activeCustomer.representativeName || "-"}</strong></div>
+                <div className="customer-info-item"><span>담당자</span><strong>{activeCustomer.contactPerson || "-"}</strong></div>
+                <div className="customer-info-item"><span>연락처</span><strong>{activeCustomer.contact || "-"}</strong></div>
+                <div className="customer-info-item"><span>이메일</span><strong>{activeCustomer.email || "-"}</strong></div>
+                <div className="customer-info-item"><span>결제 주기</span><strong>{activeCustomer.paymentCycle === "monthly_batch" ? "월말 정산" : "건별 정산"}</strong></div>
+                <div className="customer-info-item wide"><span>주소</span><strong>{activeCustomer.address || "-"}</strong></div>
+                <div className="customer-info-item"><span>기본 발행 방식</span><strong>{invoiceLabels[activeCustomer.invoicePreference]}</strong></div>
+                <div className="customer-info-item"><span>CRM 메모</span><strong>{activeCustomer.memo || "-"}</strong></div>
+              </div>
             )}
           </div>
-          <div className="panel">
+          <div className="panel crm-timeline-panel">
             <SectionTitle title="거래 타임라인" hint="견적, 승인, 수금 이력이 고객별로 모입니다." />
             <div className="timeline">
               {customerQuotes.map((quote) => (

@@ -25,6 +25,7 @@ function App() {
   const [view, setView] = useState<View>("quote");
   const [draftQuote, setDraftQuote] = useState<QuoteRecord>(() => emptyQuote());
   const [activeQuoteId, setActiveQuoteId] = useState(data.quotes[0]?.id ?? "");
+  const [issueQuoteId, setIssueQuoteId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [approvingQuoteId, setApprovingQuoteId] = useState("");
   const [showLanding, setShowLanding] = useState(true);
@@ -99,6 +100,7 @@ function App() {
     if (quote.invoiceStatus === "issued" || quote.invoiceStatus === "sent") {
       window.alert("이미 발행된 세금계산서라 중복 요청을 차단했습니다. 변경이 필요하면 팝빌 관리자에서 수정세금계산서를 처리해 주세요.");
       setActiveQuoteId(quote.id);
+      setIssueQuoteId(quote.id);
       setView("issue");
       return;
     }
@@ -182,6 +184,7 @@ function App() {
       return { ...prev, quotes: syncedQuotes, sales, customers: syncCustomerTotals(prev.customers, sales, syncedQuotes) };
     });
     setActiveQuoteId(quote.id);
+    setIssueQuoteId(quote.id);
     setView("issue");
 
     if (quote.invoiceIssuanceMode !== "auto" || !quote.invoiceType.issueInvoice) {
@@ -467,7 +470,16 @@ function App() {
           {nav.map((item) => {
             const Icon = item.icon;
             return (
-              <button key={item.id} aria-label={item.label} title={item.label} className={view === item.id ? "active" : ""} onClick={() => setView(item.id)}>
+              <button
+                key={item.id}
+                aria-label={item.label}
+                title={item.label}
+                className={view === item.id ? "active" : ""}
+                onClick={() => {
+                  if (item.id === "issue") setIssueQuoteId(null);
+                  setView(item.id);
+                }}
+              >
                 <Icon size={18} />
                 <span>{item.label}</span>
               </button>
@@ -534,10 +546,14 @@ function App() {
         )}
         {view === "issue" && (
           <IssueCenter
-            quote={activeQuote}
+            quote={data.quotes.find((quote) => quote.id === issueQuoteId)}
             quotes={data.quotes}
             customers={data.customers}
-            onSelectQuote={setActiveQuoteId}
+            onSelectQuote={(id) => {
+              setIssueQuoteId(id);
+              setActiveQuoteId(id);
+            }}
+            onClose={() => setIssueQuoteId(null)}
             onApprove={approveQuote}
             onChangeQuote={updateQuote}
             onCustomerUpdate={(customer) =>
@@ -548,7 +564,7 @@ function App() {
             }
             onRefreshStatus={refreshInvoiceStatus}
             onExportCsv={exportCsv}
-            isApproving={approvingQuoteId === activeQuote.id}
+            isApproving={Boolean(issueQuoteId && approvingQuoteId === issueQuoteId)}
           />
         )}
         {view === "customers" && <CustomerManager data={data} setData={setData} />}
