@@ -5,6 +5,7 @@ import { money } from "../lib/format";
 import { quoteSubtotal, quoteTotal, quoteVat } from "../lib/quote-calc";
 import { SectionTitle } from "../components/SectionTitle";
 import { Status } from "../components/Status";
+import { QuotePreview } from "./QuotePreview";
 import { today } from "../lib/date";
 import { statusLabels } from "../constants";
 
@@ -28,7 +29,8 @@ export function IssueCenter({
   onCustomerUpdate,
   onRefreshStatus,
   onExportCsv,
-  isApproving
+  isApproving,
+  logo
 }: {
   quote?: QuoteRecord;
   quotes: QuoteRecord[];
@@ -41,6 +43,7 @@ export function IssueCenter({
   onRefreshStatus: (quote: QuoteRecord) => void;
   onExportCsv: (quote: QuoteRecord) => void;
   isApproving: boolean;
+  logo?: string;
 }) {
   const [query, setQuery] = useState("");
   const [invoiceFilter, setInvoiceFilter] = useState<InvoiceStatus | "all">("all");
@@ -109,7 +112,7 @@ export function IssueCenter({
   const issuanceComplete = invoiceStatus === "issued" || invoiceStatus === "sent";
 
   return (
-    <section className="issue-page issue-detail-view">
+    <section className="issue-split issue-detail-view">
       <div className="panel issue-card">
         <div className="issue-detail-head">
           <div className="issue-detail-identity">
@@ -191,6 +194,8 @@ export function IssueCenter({
           <button className="ghost" disabled={!quote.popbillInvoiceId || isApproving} onClick={() => onRefreshStatus(quote)}><RefreshCw size={17} /> 발행 상태 조회</button>
         </div>
       </div>
+
+      <QuotePreview quote={quote} customer={customer} logo={logo} />
     </section>
   );
 }

@@ -565,6 +565,7 @@ function App() {
             onRefreshStatus={refreshInvoiceStatus}
             onExportCsv={exportCsv}
             isApproving={Boolean(issueQuoteId && approvingQuoteId === issueQuoteId)}
+            logo={data.logoDataUrl}
           />
         )}
         {view === "customers" && <CustomerManager data={data} setData={setData} />}
