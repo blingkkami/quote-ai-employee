@@ -14,6 +14,7 @@
 body {
   margin: 0;
   font-size: 14px;
+  line-height: 1.5;
   overflow: hidden;
 }
 
@@ -36,7 +37,7 @@ button {
   padding: 7px 12px;
   cursor: pointer;
   min-height: 34px;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 button:disabled {
@@ -80,7 +81,7 @@ summary:focus-visible {
 }
 
 .muted {
-  color: #8492a6;
+  color: #64748b;
 }
 
 .link {
@@ -134,9 +135,9 @@ summary:focus-visible {
 }
 
 .brand small {
-  color: #94a3b8;
+  color: #64748b;
   margin-top: 2px;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .sidebar nav {
@@ -164,8 +165,8 @@ summary:focus-visible {
   gap: 6px;
   margin-top: 16px;
   padding: 4px;
-  color: #8492a6;
-  font-size: 12px;
+  color: #64748b;
+  font-size: 13px;
 }
 
 .sidebar-about:hover {
@@ -214,7 +215,7 @@ summary:focus-visible {
 .landing-tagline {
   margin: 0;
   max-width: 560px;
-  color: #8492a6;
+  color: #64748b;
   font-size: 14px;
   line-height: 1.6;
 }
@@ -308,7 +309,7 @@ summary:focus-visible {
 
 .landing-card p {
   margin: 0;
-  color: #8492a6;
+  color: #64748b;
   font-size: 13px;
   line-height: 1.55;
 }
@@ -325,8 +326,8 @@ summary:focus-visible {
 
 .landing-foot {
   margin: 0;
-  color: #8492a6;
-  font-size: 12px;
+  color: #64748b;
+  font-size: 13px;
 }
 
 @media (max-width: 700px) {
@@ -412,8 +413,8 @@ main > .grid.two {
 .topbar p,
 .section-title p {
   margin: 0 0 4px;
-  color: #8492a6;
-  font-size: 12px;
+  color: #64748b;
+  font-size: 13px;
 }
 
 .topbar h1,
@@ -512,7 +513,7 @@ label {
   display: grid;
   gap: 4px;
   color: #334155;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .address-field {
@@ -520,7 +521,7 @@ label {
   gap: 4px;
   margin-top: 9px;
   color: #334155;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .address-input-row {
@@ -595,7 +596,7 @@ textarea {
   color: #0f172a;
   background: #ffffff;
   min-height: 38px;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 textarea {
@@ -620,8 +621,8 @@ textarea {
 
 .ai-error {
   margin: 0;
-  color: #8492a6;
-  font-size: 12px;
+  color: #64748b;
+  font-size: 13px;
 }
 
 .items {
@@ -913,12 +914,13 @@ td {
   border-bottom: 1px solid #edf1f5;
   padding: 10px 10px;
   vertical-align: middle;
+  line-height: 1.4;
 }
 
 th {
   color: #64748b;
   background: #f8fafc;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 tbody tr:hover td {
@@ -989,7 +991,7 @@ tbody tr:hover td {
   justify-items: center;
   gap: 6px;
   padding: 46px 20px;
-  color: #778295;
+  color: #64748b;
   text-align: center;
 }
 
@@ -999,7 +1001,7 @@ tbody tr:hover td {
 }
 
 .empty-state span {
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .table-wrap {
@@ -1095,13 +1097,13 @@ tbody tr:hover td {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  color: #8492a6;
-  font-size: 11px;
+  color: #64748b;
+  font-size: 12px;
 }
 
 .crm-list-meta strong {
   color: #475569;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .crm-list {
@@ -1160,7 +1162,7 @@ tbody tr:hover td {
   gap: 5px;
   overflow: hidden;
   color: #64748b;
-  font-size: 11px;
+  font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1203,15 +1205,15 @@ tbody tr:hover td {
 }
 
 .crm-metrics small {
-  color: #94a3b8;
-  font-size: 9px;
+  color: #64748b;
+  font-size: 12px;
   font-weight: 500;
 }
 
 .crm-metrics b {
   overflow: hidden;
   color: #334155;
-  font-size: 11px;
+  font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1221,8 +1223,8 @@ tbody tr:hover td {
   justify-items: center;
   gap: 7px;
   padding: 36px 12px;
-  color: #94a3b8;
-  font-size: 12px;
+  color: #64748b;
+  font-size: 13px;
   text-align: center;
 }
 
@@ -1240,8 +1242,8 @@ tbody tr:hover td {
 
 .crm-profile-head p {
   margin: 0 0 5px;
-  color: #8492a6;
-  font-size: 11px;
+  color: #64748b;
+  font-size: 12px;
 }
 
 .crm-profile-head h2 {
@@ -1258,7 +1260,7 @@ tbody tr:hover td {
   display: block;
   margin-top: 5px;
   color: #64748b;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .crm-profile-actions {
@@ -1299,8 +1301,8 @@ tbody tr:hover td {
 }
 
 .customer-info-item span {
-  color: #8492a6;
-  font-size: 10px;
+  color: #64748b;
+  font-size: 12px;
 }
 
 .customer-info-item strong {
@@ -1325,7 +1327,7 @@ tbody tr:hover td {
 .customer-edit-section h3 {
   margin: 0;
   color: #334155;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .customer-edit-section .address-field {
@@ -1344,7 +1346,7 @@ tbody tr:hover td {
   align-content: center;
   gap: 8px;
   min-height: 360px;
-  color: #8492a6;
+  color: #64748b;
   text-align: center;
 }
 
@@ -1396,7 +1398,7 @@ tbody tr:hover td {
   justify-content: center;
   padding: 4px 8px;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   background: #f1f5f9;
   color: #475569;
@@ -1483,8 +1485,8 @@ tbody tr:hover td {
 }
 
 .ledger-table-head span {
-  color: #8492a6;
-  font-size: 11px;
+  color: #64748b;
+  font-size: 12px;
 }
 
 .ledger-row.sale td:first-child {
@@ -1501,7 +1503,7 @@ tbody tr:hover td {
   min-height: 24px;
   padding: 3px 7px;
   border-radius: 5px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -1518,7 +1520,7 @@ tbody tr:hover td {
 .ledger-history summary {
   cursor: pointer;
   color: #4f6fae;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -1569,13 +1571,13 @@ tbody tr:hover td {
   align-items: center;
   justify-content: space-between;
   padding-top: 2px;
-  color: #8492a6;
-  font-size: 11px;
+  color: #64748b;
+  font-size: 12px;
 }
 
 .vendor-list-meta strong {
   color: #475569;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .vendor-card-grid {
@@ -1630,7 +1632,7 @@ tbody tr:hover td {
   gap: 5px;
   overflow: hidden;
   color: #64748b;
-  font-size: 11px;
+  font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1673,15 +1675,15 @@ tbody tr:hover td {
 }
 
 .vendor-card-metrics small {
-  color: #94a3b8;
-  font-size: 9px;
+  color: #64748b;
+  font-size: 12px;
   font-weight: 500;
 }
 
 .vendor-card-metrics b {
   overflow: hidden;
   color: #334155;
-  font-size: 11px;
+  font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1692,7 +1694,7 @@ tbody tr:hover td {
   justify-items: center;
   gap: 7px;
   padding: 52px 20px;
-  color: #94a3b8;
+  color: #64748b;
   text-align: center;
 }
 
@@ -1703,7 +1705,7 @@ tbody tr:hover td {
 
 .vendor-list-empty span {
   max-width: 380px;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.55;
 }
 
@@ -1718,8 +1720,8 @@ tbody tr:hover td {
 
 .vendor-profile-identity p {
   margin: 0 0 5px;
-  color: #8492a6;
-  font-size: 11px;
+  color: #64748b;
+  font-size: 12px;
 }
 
 .vendor-profile-identity h2 {
@@ -1732,7 +1734,7 @@ tbody tr:hover td {
   display: block;
   margin-top: 5px;
   color: #64748b;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .vendor-profile-actions {
@@ -1764,8 +1766,8 @@ tbody tr:hover td {
 }
 
 .vendor-info-item span {
-  color: #8492a6;
-  font-size: 10px;
+  color: #64748b;
+  font-size: 12px;
 }
 
 .vendor-info-item strong {
@@ -1828,13 +1830,13 @@ tbody tr:hover td {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  color: #8492a6;
-  font-size: 11px;
+  color: #64748b;
+  font-size: 12px;
 }
 
 .issue-list-meta strong {
   color: #475569;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .issue-quote-list {
@@ -1884,8 +1886,8 @@ tbody tr:hover td {
 .issue-quote-amount small,
 .issue-quote-status small {
   overflow: hidden;
-  color: #8492a6;
-  font-size: 10px;
+  color: #64748b;
+  font-size: 12px;
   font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1900,7 +1902,7 @@ tbody tr:hover td {
   justify-items: center;
   gap: 7px;
   padding: 52px 20px;
-  color: #94a3b8;
+  color: #64748b;
   text-align: center;
 }
 
@@ -1910,7 +1912,7 @@ tbody tr:hover td {
 }
 
 .issue-list-empty span {
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .issue-detail-head,
@@ -1928,8 +1930,8 @@ tbody tr:hover td {
 
 .issue-detail-identity p {
   margin: 0 0 5px;
-  color: #8492a6;
-  font-size: 11px;
+  color: #64748b;
+  font-size: 12px;
 }
 
 .issue-detail-identity h2 {
@@ -1942,7 +1944,7 @@ tbody tr:hover td {
   display: block;
   margin-top: 5px;
   color: #64748b;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .issue-detail-actions {
@@ -1972,7 +1974,7 @@ tbody tr:hover td {
   display: block;
   margin-bottom: 6px;
   color: #475569;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
 }
 
@@ -1998,7 +2000,7 @@ table tfoot th {
   border-radius: 5px;
   background: #ffffff;
   color: #334155;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .code {
@@ -2055,8 +2057,8 @@ table tfoot th {
 }
 
 .item-table-head span {
-  color: #8492a6;
-  font-size: 11px;
+  color: #64748b;
+  font-size: 12px;
 }
 
 .settings-page {
@@ -2133,7 +2135,7 @@ table tfoot th {
   background: #f1f5f9;
   color: #475569;
   padding: 9px 10px;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.45;
 }
 
@@ -2217,7 +2219,7 @@ table tfoot th {
   background: #ffffff;
   color: #3d5a94;
   text-decoration: none;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
 }
 
@@ -2415,7 +2417,7 @@ button.kpi.active {
 }
 
 .chart-empty {
-  color: #8492a6;
+  color: #64748b;
   font-size: 13px;
   text-align: center;
   padding: 28px 0;
@@ -2444,8 +2446,8 @@ button.kpi.active {
 }
 
 .vchart-value {
-  font-size: 11px;
-  color: #8492a6;
+  font-size: 12px;
+  color: #64748b;
   margin-bottom: 6px;
 }
 
@@ -2479,7 +2481,7 @@ button.kpi.active {
   min-width: 0;
   text-align: center;
   font-size: 12px;
-  color: #8492a6;
+  color: #64748b;
 }
 
 .vchart-label.current {
@@ -2524,7 +2526,7 @@ button.kpi.active {
 }
 
 .hbar-more {
-  color: #8492a6;
+  color: #64748b;
   font-size: 12px;
   margin-top: 2px;
 }
