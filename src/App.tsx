@@ -573,7 +573,7 @@ function App() {
         {view === "ledger" && <Ledger data={data} onPayment={recordPayment} onPurchasePayment={recordPurchasePayment} />}
         {view === "items" && <ItemInsights data={data} />}
         {view === "dashboard" && <Dashboard data={data} totals={totals} />}
-        {view === "settings" && <SettingsView integration={data.taxApiIntegration} onChange={updateTaxApiIntegration} />}
+        {view === "settings" && <SettingsView integration={data.taxApiIntegration} onChange={updateTaxApiIntegration} data={data} onRestore={setData} />}
       </main>
     </div>
   );

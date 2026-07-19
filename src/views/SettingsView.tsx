@@ -1,11 +1,12 @@
-import { useEffect, useState } from "react";
-import { BookOpen, LogOut, RefreshCw, Save, Settings2 } from "lucide-react";
-import type { TaxApiIntegration, TaxApiProvider } from "../types";
+import { useEffect, useRef, useState } from "react";
+import { BookOpen, Download, LogOut, RefreshCw, Save, Settings2, Upload } from "lucide-react";
+import type { AppData, TaxApiIntegration, TaxApiProvider } from "../types";
 import { SectionTitle } from "../components/SectionTitle";
 import { Input } from "../components/Input";
 import { Status } from "../components/Status";
 import { connectPopbill, disconnectPopbill } from "../lib/popbill-access";
 import { formatBusinessNumber } from "../lib/input-format";
+import { exportBackup, parseBackup } from "../lib/backup";
 import { PopbillGuide } from "./PopbillGuide";
 
 const providerLabels: Record<TaxApiProvider, string> = {
@@ -16,12 +17,33 @@ const providerLabels: Record<TaxApiProvider, string> = {
 
 type ConnectionCheck = { configured: boolean; environment?: string; missing?: string[]; message: string };
 
-export function SettingsView({ integration, onChange }: { integration: TaxApiIntegration; onChange: (integration: TaxApiIntegration) => void }) {
+export function SettingsView({ integration, onChange, data, onRestore }: { integration: TaxApiIntegration; onChange: (integration: TaxApiIntegration) => void; data: AppData; onRestore: (next: AppData) => void }) {
   const [draft, setDraft] = useState(integration);
   const [checking, setChecking] = useState(false);
   const [result, setResult] = useState<ConnectionCheck | null>(null);
   const [accessToken, setAccessToken] = useState("");
   const [activeTab, setActiveTab] = useState<"settings" | "guide">("settings");
+  const importInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImportFile = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = parseBackup(String(reader.result ?? ""));
+        if (window.confirm("현재 브라우저의 데이터가 백업 파일 내용으로 교체됩니다. 계속할까요?")) {
+          onRestore(parsed);
+          window.alert("백업을 불러왔습니다.");
+        }
+      } catch (error) {
+        window.alert(error instanceof Error ? error.message : "백업 파일을 불러오지 못했습니다.");
+      }
+    };
+    reader.onerror = () => window.alert("백업 파일을 읽지 못했습니다.");
+    reader.readAsText(file);
+  };
 
   useEffect(() => setDraft(integration), [integration]);
   const patchDraft = (patch: Partial<TaxApiIntegration>) => setDraft((prev) => ({ ...prev, ...patch }));
@@ -125,6 +147,16 @@ export function SettingsView({ integration, onChange }: { integration: TaxApiInt
             <button className="ghost" onClick={disconnectConnection} disabled={checking}><LogOut size={16} /> 이 브라우저 연결 해제</button>
           </div>
         </div> : <PopbillGuide onUseAccessToken={(token) => { setAccessToken(token); setResult(null); setActiveTab("settings"); }} />}
+      </div>
+
+      <div className="panel">
+        <SectionTitle title="데이터 백업" hint="파일로 내보내 안전하게 보관하거나, 백업 파일에서 데이터를 복원합니다." />
+        <p className="muted">모든 데이터는 이 브라우저에만 저장됩니다. 정기적으로 내보내기해 파일을 안전한 곳에 보관하세요.</p>
+        <div className="actions">
+          <button onClick={() => exportBackup(data)}><Download size={16} /> 데이터 내보내기</button>
+          <button className="ghost" onClick={() => importInputRef.current?.click()}><Upload size={16} /> 백업 파일 가져오기</button>
+        </div>
+        <input ref={importInputRef} type="file" accept="application/json,.json" hidden onChange={handleImportFile} />
       </div>
     </section>
   );

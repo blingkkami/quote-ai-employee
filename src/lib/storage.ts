@@ -6,12 +6,8 @@ import { quoteHasContent } from "./quote-calc";
 
 export const STORAGE_KEY = "blingkkami-ai-quote-employee:v8";
 
-export function loadData(): AppData {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return defaultData;
-    const parsed = JSON.parse(raw) as Partial<AppData>;
-    const customers = Array.isArray(parsed.customers) ? parsed.customers : [];
+export function mergeAppData(parsed: Partial<AppData>): AppData {
+  const customers = Array.isArray(parsed.customers) ? parsed.customers : [];
     const quotes = (Array.isArray(parsed.quotes) ? parsed.quotes : []).map((quote) => {
       const customer = customers.find((item) => item.id === quote.customerId);
       return {
@@ -74,6 +70,13 @@ export function loadData(): AppData {
       ...data,
       customers: syncCustomerTotals(customers, sales, syncedQuotes)
     };
+}
+
+export function loadData(): AppData {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return defaultData;
+    return mergeAppData(JSON.parse(raw) as Partial<AppData>);
   } catch {
     return defaultData;
   }
