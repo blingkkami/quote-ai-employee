@@ -2145,7 +2145,7 @@ table tfoot th {
 
 .popbill-guide {
   display: grid;
-  gap: 0;
+  gap: 14px;
 }
 
 .guide-callout {
@@ -2166,47 +2166,154 @@ table tfoot th {
   line-height: 1.6;
 }
 
-.guide-section {
+.guide-progress {
+  display: grid;
+  gap: 8px;
+}
+
+.guide-progress-pill {
+  justify-self: start;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: #eef3fb;
+  color: #4f6fae;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.guide-progress-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: #eef3fb;
+  overflow: hidden;
+}
+
+.guide-progress-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: #4f6fae;
+  transition: width 0.2s ease;
+}
+
+.guide-step {
   display: grid;
   gap: 12px;
-  padding: 18px 2px;
-  border-bottom: 1px solid #edf1f5;
+  background: #ffffff;
+  border: 1px solid #e5eaf2;
+  border-radius: 12px;
+  padding: 16px;
 }
 
-.guide-section:last-child {
-  border-bottom: 0;
-  padding-bottom: 0;
+.guide-step.is-current {
+  border-color: #4f6fae;
+  box-shadow: 0 0 0 3px rgba(79, 111, 174, 0.12);
 }
 
-.guide-heading {
+.guide-step.is-done {
+  opacity: 0.75;
+  background: #f8fafc;
+}
+
+.guide-step-head {
   display: grid;
-  grid-template-columns: 30px minmax(0, 1fr);
-  gap: 10px;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
 }
 
-.guide-heading > span {
+.guide-step-num {
   display: grid;
   place-items: center;
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: #4f6fae;
-  color: #ffffff;
-  font-size: 12px;
+  background: #eef3fb;
+  color: #4f6fae;
+  font-size: 14px;
   font-weight: 800;
 }
 
-.guide-heading strong,
-.guide-issue-flow h3 {
-  font-size: 14px;
+.guide-step.is-done .guide-step-num {
+  background: #4f6fae;
+  color: #ffffff;
+}
+
+.guide-step-title strong {
+  font-size: 15px;
   color: #1e293b;
+}
+
+.guide-step-title p {
+  margin: 4px 0 0;
+  color: #64748b;
+  line-height: 1.6;
+}
+
+.guide-step-body {
+  display: grid;
+  gap: 12px;
+  padding-left: 40px;
+}
+
+.guide-step-line {
+  margin: 0;
+  color: #334155;
+  line-height: 1.6;
+}
+
+.guide-step-line strong {
+  color: #1e293b;
+}
+
+.guide-step-hint {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.guide-substeps {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding-left: 22px;
+  color: #334155;
+  line-height: 1.6;
+}
+
+.guide-substeps strong {
+  color: #1e293b;
+}
+
+.guide-primary {
+  justify-self: start;
+}
+
+.guide-step-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  justify-self: start;
+  min-height: 44px;
+  padding: 0 6px;
+  margin-left: 40px;
+  color: #4f6fae;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.guide-step-check input {
+  width: 20px;
+  height: 20px;
+  accent-color: #4f6fae;
+  cursor: pointer;
 }
 
 .guide-links {
   display: flex;
   flex-wrap: wrap;
   gap: 7px;
-  padding-left: 40px;
 }
 
 .guide-links a {
@@ -2225,9 +2332,8 @@ table tfoot th {
 
 .guide-token-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 34px 34px;
+  grid-template-columns: minmax(0, 1fr) 34px 34px 34px;
   gap: 6px;
-  padding-left: 40px;
 }
 
 .guide-token-row code {
@@ -2244,7 +2350,6 @@ table tfoot th {
 }
 
 .guide-code {
-  margin-left: 40px;
   overflow: hidden;
   border: 1px solid #d9e1ec;
   border-radius: 8px;
@@ -2270,16 +2375,22 @@ table tfoot th {
   line-height: 1.55;
 }
 
-.guide-section > button {
-  justify-self: start;
-  margin-left: 40px;
+.guide-outro {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #e5eaf2;
+  border-radius: 12px;
+  background: #ffffff;
 }
 
-.guide-issue-flow h3 {
+.guide-outro h3 {
   margin: 0;
+  font-size: 15px;
+  color: #1e293b;
 }
 
-.guide-issue-flow ol {
+.guide-outro ol {
   display: grid;
   gap: 8px;
   margin: 0;
