@@ -88,10 +88,13 @@ export function PopbillGuide({ onUseAccessToken }: { onUseAccessToken: (token: s
           <button className="icon" title={copied === "failed" ? "복사하지 못했습니다" : "발행 보안키 복사"} aria-label="발행 보안키 복사" onClick={() => copy(accessToken, "token")}>{copied === "token" ? <Check size={16} /> : <Copy size={16} />}</button>
           <button className="icon" title="새 발행 보안키 생성" aria-label="새 발행 보안키 생성" onClick={() => { setAccessToken(makeAccessToken()); setCopied(null); }}><RotateCw size={16} /></button>
         </div>
-        <div className="guide-code">
-          <div><strong>Vercel 환경변수 예시</strong><button className="ghost" onClick={() => copy(environmentTemplate(accessToken), "env")}>{copied === "env" ? <Check size={15} /> : <Copy size={15} />} {copied === "env" ? "복사됨" : copied === "failed" ? "복사 실패" : "전체 복사"}</button></div>
-          <pre>{environmentTemplate(accessToken)}</pre>
-        </div>
+        <details className="guide-code-details">
+          <summary>환경변수 목록 보기 (개발자·설치용)</summary>
+          <div className="guide-code">
+            <div><strong>Vercel 환경변수 예시</strong><button className="ghost" onClick={() => copy(environmentTemplate(accessToken), "env")}>{copied === "env" ? <Check size={15} /> : <Copy size={15} />} {copied === "env" ? "복사됨" : copied === "failed" ? "복사 실패" : "전체 복사"}</button></div>
+            <pre>{environmentTemplate(accessToken)}</pre>
+          </div>
+        </details>
       </section>
 
       <section className="guide-section">

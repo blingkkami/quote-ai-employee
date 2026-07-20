@@ -2993,3 +2993,14 @@ button.kpi.active {
     print-color-adjust: exact;
   }
 }
+
+.guide-code-details summary {
+  cursor: pointer;
+  color: #64748b;
+  font-size: 13px;
+  padding: 8px 0;
+}
+
+.guide-code-details[open] summary {
+  margin-bottom: 8px;
+}
