@@ -284,6 +284,18 @@ export function PopbillGuide({ onUseAccessToken }: { onUseAccessToken: (token: s
         <p className="guide-note">
           처음에는 연습 모드(<code>POPBILL_IS_TEST=true</code>)로 발행해 보세요. 진짜 발행으로 바꿀 준비가 되면 그 값만 <code>false</code>로 바꾸고 다시 배포하면 됩니다.
         </p>
+        <h3>1년에 한 번만 챙겨주세요</h3>
+        <ol>
+          <li>세금계산서용 공동인증서는 보통 1년마다 유효기간이 끝나요. 만료 전에 은행이나 인증기관에서 갱신해 주세요.</li>
+          <li>갱신한 새 인증서를 팝빌에 다시 등록해 주세요. 이걸 안 하면 발행이 실패해요.</li>
+        </ol>
+        <div className="guide-links">
+          <a href="https://www.popbill.com" target="_blank" rel="noreferrer">
+            팝빌에서 인증서 다시 등록하기
+            <ExternalLink size={14} />
+          </a>
+        </div>
+        <p className="guide-note">발행이 갑자기 실패하기 시작하면 가장 먼저 인증서 만료를 의심해 보세요.</p>
       </section>
     </div>
   );
