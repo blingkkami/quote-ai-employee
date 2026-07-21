@@ -6,7 +6,14 @@ const apiHandlers: Record<string, string> = {
   "/api/popbill/connect": "./api/popbill/connect.js",
   "/api/popbill/detail": "./api/popbill/detail.js",
   "/api/popbill/status": "./api/popbill/status.js",
-  "/api/popbill/webhook": "./api/popbill/webhook.js"
+  "/api/popbill/webhook": "./api/popbill/webhook.js",
+  "/api/email/send-documents": "./api/email/send-documents.js",
+  "/api/email/send-unpaid-notice": "./api/email/send-unpaid-notice.js",
+  "/api/email/status": "./api/email/status.js",
+  "/api/email/connect": "./api/email/connect.js",
+  "/api/email/smtp-connect": "./api/email/smtp-connect.js",
+  "/api/email/google-callback": "./api/email/google-callback.js",
+  "/api/email/microsoft-callback": "./api/email/microsoft-callback.js"
 };
 
 // Dev-only bridge: adapt Node req/res to the Vercel-style (request, response) handlers in api/.
@@ -36,6 +43,14 @@ function apiRoutes(): Plugin {
           json(obj: unknown) {
             res.setHeader("Content-Type", "application/json");
             res.end(JSON.stringify(obj));
+          },
+          end(body?: string) {
+            res.end(body);
+          },
+          redirect(code: number, location: string) {
+            res.statusCode = code;
+            res.setHeader("Location", location);
+            res.end();
           }
         };
 

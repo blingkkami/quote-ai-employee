@@ -1,73 +1,37 @@
-import popbill from "popbill";
-import { hasValidAccessToken, rejectPopbillAccess } from "./auth.js";
-
-const requiredVariables = ["POPBILL_LINK_ID", "POPBILL_SECRET_KEY", "POPBILL_CORP_NUM", "POPBILL_CORP_NAME", "POPBILL_CEO_NAME", "POPBILL_ACCESS_TOKEN"];
-const missing = requiredVariables.filter((name) => !process.env[name]);
-const environment = process.env.POPBILL_IS_TEST === "false" ? "production" : "test";
-let taxinvoiceService = null;
-
-if (missing.length === 0) {
-  popbill.config({
-    LinkID: process.env.POPBILL_LINK_ID,
-    SecretKey: process.env.POPBILL_SECRET_KEY,
-    IsTest: environment === "test",
-    IPRestrictOnOff: true,
-    UseStaticIP: false,
-    UseLocalTimeYN: true,
-    defaultErrorHandler: () => {}
-  });
-  taxinvoiceService = popbill.TaxinvoiceService();
-}
+import { authorizeRequest, getUserConnection } from "./auth.js";
+import { callPopbill, getPopbillService } from "./service.js";
 
 export default async function handler(request, response) {
+  response.setHeader?.("Cache-Control", "no-store");
   if (request.method !== "GET") {
     response.status(405).json({ ok: false, message: "Method not allowed" });
     return;
   }
 
-  if (missing.length > 0) {
-    response.status(200).json({
-      ok: false,
-      configured: false,
-      environment,
-      missing,
-      message: `Vercel 환경변수 ${missing.join(", ")} 설정이 필요합니다.`
-    });
-    return;
-  }
-  if (!hasValidAccessToken(request)) {
-    rejectPopbillAccess(response);
-    return;
-  }
+  const auth = await authorizeRequest(request, response);
+  if (!auth) return;
 
-  const corpNum = String(process.env.POPBILL_CORP_NUM).replace(/\D/g, "");
-  const result = await new Promise((resolve) => {
-    const timeout = setTimeout(
-      () => resolve({ ok: false, error: { message: "팝빌 응답 시간이 초과되었습니다." } }),
-      8000
-    );
-    const finish = (value) => {
-      clearTimeout(timeout);
-      resolve(value);
-    };
-    try {
-      taxinvoiceService.checkIsMember(
-        corpNum,
-        (member) => finish({ ok: member?.code === 1, member }),
-        (error) => finish({ ok: false, error })
-      );
-    } catch (error) {
-      finish({ ok: false, error });
+  try {
+    const connection = await getUserConnection(auth.client, auth.user.id);
+    if (!connection) {
+      response.status(200).json({ ok: true, configured: false, message: "연결할 사업자등록번호를 입력해 주세요." });
+      return;
     }
-  });
-
-  response.status(200).json({
-    ok: result.ok,
-    configured: result.ok,
-    environment,
-    missing: [],
-    message: result.ok
-      ? "팝빌 서버 연결과 연동회원 상태를 확인했습니다."
-      : `팝빌 연결을 확인하지 못했습니다. ${result.error?.message || result.member?.message || "인증정보와 회원 상태를 확인해 주세요."}`
-  });
+    const popbill = getPopbillService();
+    if (!popbill.service) {
+      response.status(503).json({ ok: false, configured: false, missing: popbill.missing, message: "팝빌 자동발행 서버가 아직 준비되지 않았습니다." });
+      return;
+    }
+    const member = await callPopbill(popbill.service, "checkIsMember", [connection.corp_num]);
+    const configured = member.ok && Number(member.result?.code) === 1;
+    response.status(200).json({
+      ok: configured,
+      configured,
+      environment: popbill.environment,
+      connection,
+      message: configured ? "팝빌 자동발행 연결이 정상입니다." : String(member.error?.message || member.result?.message || "팝빌 연결을 확인하지 못했습니다.")
+    });
+  } catch (error) {
+    response.status(500).json({ ok: false, configured: false, message: error instanceof Error ? error.message : String(error) });
+  }
 }

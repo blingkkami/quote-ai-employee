@@ -1,58 +1,73 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createClient } from "@supabase/supabase-js";
 
-export const POPBILL_SESSION_COOKIE = "blingbill_popbill_session";
-const SESSION_CONTEXT = "blingbill-popbill-session-v1";
-const SESSION_MAX_AGE = 60 * 60 * 24 * 400;
-
-export const isAccessTokenConfigured = () => Boolean(process.env.POPBILL_ACCESS_TOKEN);
-
-const safeEqual = (expected, received) => {
-  if (!expected || !received) return false;
-  const expectedBytes = Buffer.from(String(expected), "utf8");
-  const receivedBytes = Buffer.from(String(received), "utf8");
-  return expectedBytes.length === receivedBytes.length && timingSafeEqual(expectedBytes, receivedBytes);
-};
-
-const requestToken = (request) => {
+const headerValue = (request, name) => {
   const headers = request?.headers;
   if (!headers) return "";
-  if (typeof headers.get === "function") return String(headers.get("x-blingbill-token") || "");
-  return String(headers["x-blingbill-token"] || headers["X-Blingbill-Token"] || "");
+  if (typeof headers.get === "function") return String(headers.get(name) || "");
+  return String(headers[name.toLowerCase()] || headers[name] || "");
 };
 
-const sessionValue = () => {
-  const expected = String(process.env.POPBILL_ACCESS_TOKEN || "");
-  return expected ? createHmac("sha256", expected).update(SESSION_CONTEXT).digest("base64url") : "";
+const reject = (response, status, message) => {
+  response.status(status).json({ ok: false, configured: false, invoiceStatus: "pending", message });
+  return null;
 };
 
-const requestCookie = (request) => {
-  const headers = request?.headers;
-  if (!headers) return "";
-  const raw = typeof headers.get === "function"
-    ? String(headers.get("cookie") || "")
-    : String(headers.cookie || headers.Cookie || "");
-  const match = raw.split(";").map((part) => part.trim()).find((part) => part.startsWith(`${POPBILL_SESSION_COOKIE}=`));
-  return match ? decodeURIComponent(match.slice(POPBILL_SESSION_COOKIE.length + 1)) : "";
-};
+export async function authorizeRequest(request, response) {
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const publishableKey = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-export const hasValidDirectAccessToken = (value) =>
-  safeEqual(String(process.env.POPBILL_ACCESS_TOKEN || ""), String(value || ""));
+  if (!supabaseUrl || !publishableKey) {
+    return reject(response, 503, "로그인 서버 설정이 완료되지 않았습니다.");
+  }
 
-export const hasValidAccessToken = (request) =>
-  hasValidDirectAccessToken(requestToken(request)) || safeEqual(sessionValue(), requestCookie(request));
+  const authorization = headerValue(request, "authorization");
+  const token = authorization.startsWith("Bearer ") ? authorization.slice(7).trim() : "";
+  if (!token) return reject(response, 401, "로그인 후 다시 시도해 주세요.");
 
-export const popbillSessionCookie = () => {
-  const secure = process.env.VERCEL_ENV === "production" || process.env.NODE_ENV === "production";
-  return `${POPBILL_SESSION_COOKIE}=${encodeURIComponent(sessionValue())}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${SESSION_MAX_AGE}${secure ? "; Secure" : ""}`;
-};
+  const authClient = createClient(supabaseUrl, publishableKey, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    global: { headers: { Authorization: `Bearer ${token}` } }
+  });
+  const { data, error } = await authClient.auth.getUser(token);
+  if (error || !data.user) return reject(response, 401, "로그인 정보가 만료되었습니다. 다시 로그인해 주세요.");
 
-export const clearPopbillSessionCookie = () =>
-  `${POPBILL_SESSION_COOKIE}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0`;
+  const admin = serviceRoleKey ? createClient(supabaseUrl, serviceRoleKey, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
+  }) : null;
+  return { user: data.user, client: authClient, admin };
+}
 
-export const rejectPopbillAccess = (response, status = 401) => response.status(status).json({
-  ok: false,
-  invoiceStatus: "pending",
-  message: status === 503
-    ? "Vercel에 POPBILL_ACCESS_TOKEN 발행 보안키를 먼저 설정해 주세요."
-    : "발행 보안키가 일치하지 않습니다. 설정 화면에서 다시 확인해 주세요."
-});
+export async function getUserConnection(admin, userId) {
+  const { data, error } = await admin
+    .from("popbill_connections")
+    .select("*")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) throw new Error(`팝빌 연결정보를 확인하지 못했습니다. ${error.message}`);
+  return data;
+}
+
+export async function getConnectionByCorpNum(admin, corpNum) {
+  const { data, error } = await admin
+    .from("popbill_connections")
+    .select("user_id, corp_num")
+    .eq("corp_num", corpNum)
+    .maybeSingle();
+  if (error) throw new Error(`사업자 연결정보를 확인하지 못했습니다. ${error.message}`);
+  return data;
+}
+
+export async function saveUserConnection(admin, userId, connection) {
+  const { error } = await admin.from("popbill_connections").upsert({
+    user_id: userId,
+    ...connection,
+    updated_at: new Date().toISOString()
+  }, { onConflict: "user_id" });
+  if (error) throw new Error(`팝빌 연결정보를 저장하지 못했습니다. ${error.message}`);
+}
+
+export async function removeUserConnection(admin, userId) {
+  const { error } = await admin.from("popbill_connections").delete().eq("user_id", userId);
+  if (error) throw new Error(`팝빌 연결을 해제하지 못했습니다. ${error.message}`);
+}

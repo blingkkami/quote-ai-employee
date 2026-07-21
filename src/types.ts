@@ -7,7 +7,15 @@ export type TaxApiProvider = "popbill" | "barobill" | "hometax";
 export type TaxApiIntegration = {
   provider: TaxApiProvider;
   businessNumber: string;
+  corpName?: string;
+  ceoName?: string;
+  address?: string;
+  bizType?: string;
+  bizClass?: string;
+  contactName?: string;
+  contactPhone?: string;
   contactEmail: string;
+  popbillUserId?: string;
   isConnected: boolean;
   lastTestedAt?: string;
   lastIssuedAt?: string;
@@ -56,6 +64,8 @@ export type QuoteRecord = {
   customerSnapshot?: CustomerSnapshot;
   approvedAt?: string;
   invoiceDate?: string;
+  transactionStatementMemo?: string;
+  taxInvoiceMemo?: string;
   invoiceIssuanceMode: InvoiceIssuanceMode;
   invoiceType: {
     issueInvoice: boolean;
@@ -65,6 +75,11 @@ export type QuoteRecord = {
   popbillNtsConfirmNum?: string;
   invoiceStatus?: "pending" | "issued" | "sent" | "failed";
   invoiceNote?: string;
+  documentEmailStatus?: "pending" | "sending" | "sent" | "failed";
+  documentEmailRecipient?: string;
+  documentEmailSentAt?: string;
+  documentEmailId?: string;
+  documentEmailNote?: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -85,6 +100,11 @@ export type Customer = {
   lastQuoteAt: string;
   totalSales: number;
   unpaidAmount: number;
+  unpaidNoticeSentAt?: string;
+  unpaidNoticeRecipient?: string;
+  unpaidNoticeAmount?: number;
+  unpaidNoticeEmailId?: string;
+  unpaidNoticeNote?: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -127,6 +147,22 @@ export type PurchaseRecord = {
   updatedAt: string;
 };
 
+export type DocumentEmailSettings = {
+  autoSendOnApproval: boolean;
+};
+
+export type WorkspaceProfile = {
+  businessName: string;
+  stampDataUrl?: string;
+  paymentAccount: {
+    bankName: string;
+    accountNumber: string;
+    accountHolder: string;
+    showOnDocuments: boolean;
+    showOnUnpaidNotices: boolean;
+  };
+};
+
 export type AppData = {
   quotes: QuoteRecord[];
   customers: Customer[];
@@ -134,5 +170,7 @@ export type AppData = {
   sales: SaleRecord[];
   purchases: PurchaseRecord[];
   taxApiIntegration: TaxApiIntegration;
+  documentEmailSettings: DocumentEmailSettings;
+  workspaceProfile: WorkspaceProfile;
   logoDataUrl?: string;
 };

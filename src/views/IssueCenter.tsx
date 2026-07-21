@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Download, RefreshCw, Search, Send, X } from "lucide-react";
-import type { Customer, QuoteRecord } from "../types";
+import { Download, Mail, RefreshCw, Search, Send, X } from "lucide-react";
+import type { Customer, QuoteRecord, WorkspaceProfile } from "../types";
 import { money } from "../lib/format";
 import { quoteSubtotal, quoteTotal, quoteVat } from "../lib/quote-calc";
 import { SectionTitle } from "../components/SectionTitle";
@@ -8,6 +8,7 @@ import { Status } from "../components/Status";
 import { QuotePreview } from "./QuotePreview";
 import { today } from "../lib/date";
 import { statusLabels } from "../constants";
+import { TextArea } from "../components/TextArea";
 
 const invoiceStatusLabels = {
   pending: "발행 대기",
@@ -28,9 +29,11 @@ export function IssueCenter({
   onChangeQuote,
   onCustomerUpdate,
   onRefreshStatus,
+  onSendDocuments,
   onExportCsv,
   isApproving,
-  logo
+  logo,
+  workspaceProfile
 }: {
   quote?: QuoteRecord;
   quotes: QuoteRecord[];
@@ -41,9 +44,11 @@ export function IssueCenter({
   onChangeQuote: (quote: QuoteRecord) => void;
   onCustomerUpdate: (customer: Customer) => void;
   onRefreshStatus: (quote: QuoteRecord) => void;
+  onSendDocuments: (quote: QuoteRecord) => void;
   onExportCsv: (quote: QuoteRecord) => void;
   isApproving: boolean;
   logo?: string;
+  workspaceProfile: WorkspaceProfile;
 }) {
   const [query, setQuery] = useState("");
   const [invoiceFilter, setInvoiceFilter] = useState<InvoiceStatus | "all">("all");
@@ -136,6 +141,7 @@ export function IssueCenter({
           <dt>발행 상태</dt><dd><Status tone={invoiceStatus}>{invoiceStatusLabels[invoiceStatus]}</Status></dd>
           <dt>팝빌 관리번호</dt><dd>{quote.popbillInvoiceId ?? "-"}</dd>
           <dt>국세청 승인번호</dt><dd>{quote.popbillNtsConfirmNum ?? "-"}</dd>
+          <dt>문서 이메일</dt><dd><Status tone={quote.documentEmailStatus ?? "pending"}>{quote.documentEmailStatus === "sent" ? "발송 완료" : quote.documentEmailStatus === "failed" ? "발송 실패" : quote.documentEmailStatus === "sending" ? "발송 중" : "발송 전"}</Status>{quote.documentEmailRecipient ? ` · ${quote.documentEmailRecipient}` : ""}</dd>
         </dl>
 
         <div className="issue-options">
@@ -165,6 +171,12 @@ export function IssueCenter({
           </label>
         </div>
 
+        <div className="document-memo-grid issue-memo-grid">
+          <TextArea label="거래명세서 비고" value={quote.transactionStatementMemo ?? ""} maxLength={150} placeholder="거래명세서에 표시할 비고" onChange={(transactionStatementMemo) => onChangeQuote({ ...quote, transactionStatementMemo })} />
+          <TextArea label="세금계산서 비고" value={quote.taxInvoiceMemo ?? ""} maxLength={150} disabled={issuanceComplete} placeholder="세금계산서 비고란에 표시할 내용" onChange={(taxInvoiceMemo) => onChangeQuote({ ...quote, taxInvoiceMemo })} />
+        </div>
+        {issuanceComplete && <p className="field-help">세금계산서 비고는 발행 완료 후 변경할 수 없습니다. 거래명세서 비고는 수정 후 문서를 다시 발송할 수 있습니다.</p>}
+
         {customer && (
           <button
             className="link preference-save"
@@ -181,6 +193,7 @@ export function IssueCenter({
         )}
 
         {quote.invoiceNote && <div className={invoiceStatus === "failed" ? "alert danger-alert" : "notice"}>{quote.invoiceNote}</div>}
+        {quote.documentEmailNote && <div className={quote.documentEmailStatus === "failed" ? "alert danger-alert" : "notice"}>{quote.documentEmailNote}</div>}
         {issuanceComplete && <div className="notice">발행 완료된 건은 중복 발행을 막기 위해 옵션이 잠겨 있습니다.</div>}
         {quote.invoiceIssuanceMode === "auto" && quote.invoiceType.issueInvoice && invoiceStatus === "pending" && (
           <div className="notice">팝빌 인증정보가 확인되기 전에는 실제 발행 완료로 처리되지 않습니다.</div>
@@ -191,11 +204,12 @@ export function IssueCenter({
             <Send size={17} /> {issuanceComplete ? "발행 완료" : isApproving ? "처리 중" : quote.status === "approved" ? "발행 다시 시도" : "승인 및 발행"}
           </button>
           <button className="ghost" onClick={() => onExportCsv(quote)}><Download size={17} /> 이 견적 CSV</button>
+          <button className="ghost" disabled={isApproving || !invoiceCustomer?.email} onClick={() => onSendDocuments(quote)}><Mail size={17} /> 문서 이메일 {quote.documentEmailStatus === "sent" ? "재전송" : "발송"}</button>
           <button className="ghost" disabled={!quote.popbillInvoiceId || isApproving} onClick={() => onRefreshStatus(quote)}><RefreshCw size={17} /> 발행 상태 조회</button>
         </div>
       </div>
 
-      <QuotePreview quote={quote} customer={customer} logo={logo} />
+      <QuotePreview quote={quote} customer={customer} logo={logo} workspaceProfile={workspaceProfile} />
     </section>
   );
 }

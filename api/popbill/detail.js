@@ -1,14 +1,10 @@
 import popbill from "popbill";
-import { hasValidAccessToken, isAccessTokenConfigured, rejectPopbillAccess } from "./auth.js";
+import { authorizeRequest, getUserConnection } from "./auth.js";
 
 const LINK_ID = process.env.POPBILL_LINK_ID;
 const SECRET_KEY = process.env.POPBILL_SECRET_KEY;
-const CORP_NUM = process.env.POPBILL_CORP_NUM;
-const CORP_NAME = process.env.POPBILL_CORP_NAME;
-const CEO_NAME = process.env.POPBILL_CEO_NAME;
-const USER_ID = process.env.POPBILL_USER_ID || "";
 const IS_TEST = process.env.POPBILL_IS_TEST !== "false";
-const configured = Boolean(LINK_ID && SECRET_KEY && CORP_NUM && CORP_NAME && CEO_NAME);
+const configured = Boolean(LINK_ID && SECRET_KEY);
 
 let taxinvoiceService = null;
 if (configured) {
@@ -29,14 +25,8 @@ export default async function handler(request, response) {
     response.status(405).json({ ok: false, message: "Method not allowed" });
     return;
   }
-  if (!isAccessTokenConfigured()) {
-    rejectPopbillAccess(response, 503);
-    return;
-  }
-  if (!hasValidAccessToken(request)) {
-    rejectPopbillAccess(response);
-    return;
-  }
+  const auth = await authorizeRequest(request, response);
+  if (!auth) return;
   if (!configured) {
     response.status(503).json({
       ok: false,
@@ -51,12 +41,18 @@ export default async function handler(request, response) {
     return;
   }
 
+  const connection = await getUserConnection(auth.client, auth.user.id);
+  if (!connection) {
+    response.status(409).json({ ok: false, invoiceStatus: "pending", message: "팝빌 자동발행 연결정보가 없습니다." });
+    return;
+  }
+
   const detail = await new Promise((resolve) => {
     taxinvoiceService.getDetailInfo(
-      String(CORP_NUM).replace(/\D/g, ""),
+      String(connection.corp_num).replace(/\D/g, ""),
       "SELL",
       mgtKey,
-      USER_ID,
+      connection.popbill_user_id || "",
       (result) => resolve({ ok: true, result }),
       (error) => resolve({ ok: false, error })
     );

@@ -18,6 +18,7 @@ export function mergeAppData(parsed: Partial<AppData>): AppData {
         invoiceIssuanceMode: quote.invoiceIssuanceMode ?? "auto",
         invoiceType: quote.invoiceType ?? { issueInvoice: true, issueCashReceipt: false },
         invoiceStatus: quote.invoiceStatus ?? "pending",
+        documentEmailStatus: quote.documentEmailStatus ?? "pending",
         customerSnapshot: quote.customerSnapshot ?? (customer ? {
           name: customer.name,
           businessNumber: customer.businessNumber,
@@ -55,6 +56,16 @@ export function mergeAppData(parsed: Partial<AppData>): AppData {
       };
     });
     const taxApiIntegration = { ...defaultData.taxApiIntegration, ...parsed.taxApiIntegration };
+    const documentEmailSettings = { ...defaultData.documentEmailSettings, ...parsed.documentEmailSettings };
+    const workspaceProfile = {
+      ...defaultData.workspaceProfile,
+      ...parsed.workspaceProfile,
+      paymentAccount: {
+        ...defaultData.workspaceProfile.paymentAccount,
+        ...parsed.workspaceProfile?.paymentAccount
+      }
+    };
+    if (!workspaceProfile.businessName.trim() && taxApiIntegration.corpName?.trim()) workspaceProfile.businessName = taxApiIntegration.corpName.trim();
     if (!taxApiIntegration.isConnected) taxApiIntegration.lastIssuedAt = undefined;
     const data: AppData = {
       ...defaultData,
@@ -64,7 +75,9 @@ export function mergeAppData(parsed: Partial<AppData>): AppData {
       vendors: Array.isArray(parsed.vendors) ? parsed.vendors : [],
       sales,
       purchases,
-      taxApiIntegration
+      taxApiIntegration,
+      documentEmailSettings,
+      workspaceProfile
     };
     return {
       ...data,
@@ -79,6 +92,24 @@ export function loadData(): AppData {
     return mergeAppData(JSON.parse(raw) as Partial<AppData>);
   } catch {
     return defaultData;
+  }
+}
+
+export function loadLegacyData(): AppData | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    return mergeAppData(JSON.parse(raw) as Partial<AppData>);
+  } catch {
+    return null;
+  }
+}
+
+export function clearLegacyData() {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // 저장소 접근이 제한된 브라우저에서는 서버 저장만 유지합니다.
   }
 }
 

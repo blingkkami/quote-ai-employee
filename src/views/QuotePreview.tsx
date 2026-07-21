@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState } from "react";
-import type { Customer, QuoteRecord } from "../types";
+import type { Customer, QuoteRecord, WorkspaceProfile } from "../types";
 import { exampleQuoteForm, exampleQuoteItems } from "../data/quote-defaults";
 import { money } from "../lib/format";
 import { addDays, koreanDate, today } from "../lib/date";
@@ -18,7 +18,7 @@ function buildValidDuration(validDuration: string, quoteDate: string) {
 const PAPER_WIDTH = 794;
 const PAPER_MIN_HEIGHT = 1123;
 
-export function QuotePreview({ quote, logo }: { quote: QuoteRecord; customer?: Customer; logo?: string }) {
+export function QuotePreview({ quote, logo, workspaceProfile }: { quote: QuoteRecord; customer?: Customer; logo?: string; workspaceProfile: WorkspaceProfile }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const paperRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
@@ -147,7 +147,10 @@ export function QuotePreview({ quote, logo }: { quote: QuoteRecord; customer?: C
         </section>
 
           <div className="qp-signoff">
-            <div className="qp-signoff-sender">{senderLine}</div>
+            <div className="qp-signoff-row">
+              <div className="qp-signoff-sender">{senderLine}</div>
+              {workspaceProfile.stampDataUrl && <img className="qp-stamp" src={workspaceProfile.stampDataUrl} alt="도장" />}
+            </div>
             <div className="qp-signoff-date">{signDate}</div>
           </div>
         </div>

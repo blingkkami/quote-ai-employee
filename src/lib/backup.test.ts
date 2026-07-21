@@ -23,6 +23,8 @@ const sample: AppData = {
   vendors: [],
   sales: [],
   purchases: [],
+  documentEmailSettings: { autoSendOnApproval: true },
+  workspaceProfile: { businessName: "", paymentAccount: { bankName: "", accountNumber: "", accountHolder: "", showOnDocuments: false, showOnUnpaidNotices: true } },
   taxApiIntegration: {
     provider: "popbill",
     businessNumber: "",

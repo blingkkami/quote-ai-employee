@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, Plus, Save, Trash2 } from "lucide-react";
-import type { Customer, CustomerSnapshot, QuoteRecord } from "../types";
+import type { Customer, CustomerSnapshot, QuoteRecord, WorkspaceProfile } from "../types";
 import { uid } from "../lib/id";
 import { invoiceLabels } from "../constants";
 import { SectionTitle } from "../components/SectionTitle";
@@ -18,6 +18,7 @@ export function QuoteBuilder({
   onCustomerUpdate,
   logo,
   onLogoChange,
+  workspaceProfile,
   itemSuggestions,
   isApproving
 }: {
@@ -28,6 +29,7 @@ export function QuoteBuilder({
   onCustomerUpdate: (customer: Customer) => void;
   logo?: string;
   onLogoChange: (logoDataUrl?: string) => void;
+  workspaceProfile: WorkspaceProfile;
   itemSuggestions: { category: string; description: string }[];
   isApproving: boolean;
 }) {
@@ -71,7 +73,7 @@ export function QuoteBuilder({
 
   const handleLogoFile = (file?: File) => {
     if (!file) return;
-    if (!file.type.startsWith("image/")) {
+    if (!["image/png", "image/jpeg", "image/webp", "image/gif"].includes(file.type)) {
       window.alert("PNG, JPG, WEBP 등 이미지 파일만 로고로 등록할 수 있습니다.");
       return;
     }
@@ -270,6 +272,10 @@ export function QuoteBuilder({
           <input type="checkbox" checked={draft.invoiceType.issueCashReceipt} onChange={(event) => setDraft({ ...draft, invoiceType: { ...draft.invoiceType, issueCashReceipt: event.target.checked } })} />
           현금영수증 발행
         </label>
+        <div className="document-memo-grid">
+          <TextArea label="거래명세서 비고" value={draft.transactionStatementMemo ?? ""} maxLength={150} placeholder="거래명세서에 표시할 비고를 입력해 주세요." onChange={(transactionStatementMemo) => setDraft({ ...draft, transactionStatementMemo })} />
+          <TextArea label="세금계산서 비고" value={draft.taxInvoiceMemo ?? ""} maxLength={150} placeholder="세금계산서 비고란에 표시할 내용을 입력해 주세요." onChange={(taxInvoiceMemo) => setDraft({ ...draft, taxInvoiceMemo })} />
+        </div>
 
         <div className="sticky-actions">
           <button className="ghost" onClick={saveNow}>
@@ -280,7 +286,7 @@ export function QuoteBuilder({
           </button>
         </div>
       </div>
-      <QuotePreview quote={draft} customer={customer} logo={logo} />
+      <QuotePreview quote={draft} customer={customer} logo={logo} workspaceProfile={workspaceProfile} />
     </section>
   );
 }

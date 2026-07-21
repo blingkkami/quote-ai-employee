@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Info, Plus, Printer } from "lucide-react";
+import { useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { Cloud, Info, LogOut, Plus, Printer, UserRound } from "lucide-react";
 import type { AppData, QuoteRecord, SaleRecord, TaxApiIntegration } from "./types";
 import { emptyQuote } from "./data/quote-defaults";
-import { loadData, saveData } from "./lib/storage";
 import { quoteHasContent, quoteSubtotal, quoteTotal, quoteVat } from "./lib/quote-calc";
 import { uid } from "./lib/id";
 import { getTaxInvoiceStatus, issueTaxInvoice } from "./lib/tax-invoice";
@@ -19,21 +18,50 @@ import { ItemInsights } from "./views/ItemInsights";
 import { Dashboard } from "./views/Dashboard";
 import { SettingsView } from "./views/SettingsView";
 import { Landing } from "./views/Landing";
+import { AuthScreen } from "./components/AuthScreen";
+import { PasswordRecovery } from "./components/PasswordRecovery";
+import { DataMigrationPrompt } from "./components/DataMigrationPrompt";
+import { AppLoading } from "./components/AppLoading";
+import { useAuthSession } from "./hooks/useAuthSession";
+import { useCloudAppData, type SyncState } from "./hooks/useCloudAppData";
+import { isSupabaseConfigured, requireSupabase } from "./lib/supabase";
+import { sendQuoteDocuments } from "./lib/document-email";
+import { DocumentRenderStage } from "./components/DocumentRenderStage";
+import { hasPaymentAccount, paymentAccountText } from "./lib/payment-account";
+import { sendUnpaidNotice } from "./lib/unpaid-notice";
 
-function App() {
-  const [data, setData] = useState<AppData>(() => loadData());
-  const [view, setView] = useState<View>("quote");
+type WorkspaceAppProps = {
+  data: AppData;
+  setData: Dispatch<SetStateAction<AppData>>;
+  userEmail: string;
+  syncState: SyncState;
+  syncError: string;
+  lastSyncedAt?: string;
+  onRetrySync: () => void;
+  onPersistData: (data: AppData) => Promise<void>;
+  onSignOut: () => Promise<void>;
+  onShowLanding: () => void;
+};
+
+function WorkspaceApp({
+  data,
+  setData,
+  userEmail,
+  syncState,
+  syncError,
+  lastSyncedAt,
+  onRetrySync,
+  onPersistData,
+  onSignOut,
+  onShowLanding
+}: WorkspaceAppProps) {
+  const [view, setView] = useState<View>(() => new URLSearchParams(window.location.search).has("email_connection") ? "settings" : "quote");
   const [draftQuote, setDraftQuote] = useState<QuoteRecord>(() => emptyQuote());
   const [activeQuoteId, setActiveQuoteId] = useState(data.quotes[0]?.id ?? "");
   const [issueQuoteId, setIssueQuoteId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [approvingQuoteId, setApprovingQuoteId] = useState("");
-  const [showLanding, setShowLanding] = useState(true);
   const approvingIds = useRef(new Set<string>());
-
-  useEffect(() => {
-    saveData(data);
-  }, [data]);
 
   const activeQuote = data.quotes.find((quote) => quote.id === activeQuoteId) ?? (view === "quote" ? draftQuote : data.quotes[0] ?? draftQuote);
 
@@ -87,14 +115,6 @@ function App() {
     setView("quote");
   };
 
-  const startFromLanding = () => {
-    const quote = emptyQuote();
-    setDraftQuote(quote);
-    setActiveQuoteId(quote.id);
-    setView("quote");
-    setShowLanding(false);
-  };
-
   const approveQuote = async (quote: QuoteRecord) => {
     if (approvingIds.current.has(quote.id)) return;
     if (quote.invoiceStatus === "issued" || quote.invoiceStatus === "sent") {
@@ -127,10 +147,11 @@ function App() {
     approvingIds.current.add(quote.id);
     setApprovingQuoteId(quote.id);
     const customer = data.customers.find((item) => item.id === customerId);
+    const now = new Date().toISOString();
     const approved: QuoteRecord = {
       ...quote,
       customerId,
-      customerSnapshot: quote.customerSnapshot ?? (customer ? {
+      customerSnapshot: customer ? {
         name: customer.name,
         businessNumber: customer.businessNumber,
         representativeName: customer.representativeName,
@@ -138,20 +159,23 @@ function App() {
         contactPerson: customer.contactPerson,
         contact: customer.contact,
         email: customer.email
-      } : undefined),
+      } : quote.customerSnapshot,
       status: "approved",
       approvedAt: today(),
       invoiceDate: quote.invoiceDate || today(),
       invoiceStatus: "pending",
-      popbillInvoiceId: quote.popbillInvoiceId
+      popbillInvoiceId: quote.popbillInvoiceId,
+      documentEmailStatus: quote.documentEmailStatus === "sent"
+        ? "sent"
+        : data.documentEmailSettings.autoSendOnApproval ? "sending" : "pending",
+      updatedAt: now
     };
-    setData((prev) => {
-      const quotes = prev.quotes.some((item) => item.id === quote.id)
-        ? prev.quotes.map((item) => (item.id === quote.id ? approved : item))
-        : [approved, ...prev.quotes];
-      const previousSale = prev.sales.find((record) => record.quoteId === quote.id);
-      const sales: SaleRecord[] = previousSale
-        ? prev.sales.map((record) =>
+    const quotes = data.quotes.some((item) => item.id === quote.id)
+      ? data.quotes.map((item) => (item.id === quote.id ? approved : item))
+      : [approved, ...data.quotes];
+    const previousSale = data.sales.find((record) => record.quoteId === quote.id);
+    const sales: SaleRecord[] = previousSale
+      ? data.sales.map((record) =>
             record.quoteId === quote.id
               ? {
                   ...record,
@@ -163,7 +187,7 @@ function App() {
                 }
               : record
           )
-        : [
+      : [
             {
               id: uid("sale"),
               quoteId: quote.id,
@@ -175,27 +199,64 @@ function App() {
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString()
             },
-            ...prev.sales
+            ...data.sales
           ];
-      const saleForQuote = sales.find((record) => record.quoteId === quote.id);
-      const syncedQuotes = saleForQuote
-        ? quotes.map((item) => item.id === quote.id ? { ...item, paymentStatus: saleForQuote.paymentStatus } : item)
-        : quotes;
-      return { ...prev, quotes: syncedQuotes, sales, customers: syncCustomerTotals(prev.customers, sales, syncedQuotes) };
-    });
+    const saleForQuote = sales.find((record) => record.quoteId === quote.id);
+    const syncedQuotes = saleForQuote
+      ? quotes.map((item) => item.id === quote.id ? { ...item, paymentStatus: saleForQuote.paymentStatus } : item)
+      : quotes;
+    let workingData: AppData = {
+      ...data,
+      quotes: syncedQuotes,
+      sales,
+      customers: syncCustomerTotals(data.customers, sales, syncedQuotes)
+    };
+    setData(workingData);
+    try {
+      await onPersistData(workingData);
+    } catch {
+      approvingIds.current.delete(quote.id);
+      setApprovingQuoteId("");
+      window.alert("견적을 서버에 저장하지 못해 승인과 자동발송을 중단했습니다. 네트워크를 확인해 주세요.");
+      return;
+    }
     setActiveQuoteId(quote.id);
     setIssueQuoteId(quote.id);
     setView("issue");
 
+    if (data.documentEmailSettings.autoSendOnApproval && quote.documentEmailStatus !== "sent" && approved.customerSnapshot) {
+      let emailPatch: Partial<QuoteRecord>;
+      try {
+        const emailResult = await sendQuoteDocuments(approved, approved.customerSnapshot);
+        emailPatch = emailResult.ok
+          ? {
+              documentEmailStatus: "sent",
+              documentEmailRecipient: emailResult.recipient || approved.customerSnapshot.email,
+              documentEmailSentAt: new Date().toISOString(),
+              documentEmailId: emailResult.emailId,
+              documentEmailNote: emailResult.message
+            }
+          : { documentEmailStatus: "failed", documentEmailNote: emailResult.message };
+      } catch (error) {
+        emailPatch = { documentEmailStatus: "failed", documentEmailNote: error instanceof Error ? error.message : String(error) };
+      }
+      workingData = {
+        ...workingData,
+        quotes: workingData.quotes.map((item) => item.id === quote.id ? { ...item, ...emailPatch } : item)
+      };
+      await onPersistData(workingData).catch(() => undefined);
+    }
+
     if (quote.invoiceIssuanceMode !== "auto" || !quote.invoiceType.issueInvoice) {
-      setData((prev) => ({
-        ...prev,
-        quotes: prev.quotes.map((item) =>
+      workingData = {
+        ...workingData,
+        quotes: workingData.quotes.map((item) =>
           item.id === quote.id
             ? { ...item, invoiceStatus: "pending", invoiceNote: quote.invoiceType.issueInvoice ? "수동 발행 대기 중입니다." : "세금계산서 발행 대상이 아닙니다." }
             : item
         )
-      }));
+      };
+      await onPersistData(workingData).catch(() => setData(workingData));
       approvingIds.current.delete(quote.id);
       setApprovingQuoteId("");
       return;
@@ -204,10 +265,11 @@ function App() {
     // 사업자번호가 없으면 자동 발행을 건너뛰고 실패로 표시한다.
     const invoiceCustomer = approved.customerSnapshot;
     if (!invoiceCustomer?.businessNumber) {
-      setData((prev) => ({
-        ...prev,
-        quotes: prev.quotes.map((item) => (item.id === quote.id ? { ...item, invoiceStatus: "failed", invoiceNote: "고객 사업자번호가 없어 발행할 수 없습니다." } : item))
-      }));
+      workingData = {
+        ...workingData,
+        quotes: workingData.quotes.map((item) => (item.id === quote.id ? { ...item, invoiceStatus: "failed", invoiceNote: "고객 사업자번호가 없어 발행할 수 없습니다." } : item))
+      };
+      await onPersistData(workingData).catch(() => setData(workingData));
       approvingIds.current.delete(quote.id);
       setApprovingQuoteId("");
       return;
@@ -232,12 +294,20 @@ function App() {
         email: invoiceCustomer.email,
         contactName: invoiceCustomer.contactPerson,
         address: invoiceCustomer.address
-      }
+      },
+      taxInvoiceMemo: approved.taxInvoiceMemo,
+      paymentAccount: data.workspaceProfile.paymentAccount.showOnDocuments && hasPaymentAccount(data.workspaceProfile)
+        ? {
+            bankName: data.workspaceProfile.paymentAccount.bankName,
+            accountNumber: data.workspaceProfile.paymentAccount.accountNumber,
+            accountHolder: data.workspaceProfile.paymentAccount.accountHolder
+          }
+        : undefined
     });
 
-    setData((prev) => ({
-      ...prev,
-      quotes: prev.quotes.map((item) =>
+    workingData = {
+      ...workingData,
+      quotes: workingData.quotes.map((item) =>
         item.id === quote.id
           ? {
               ...item,
@@ -249,11 +319,50 @@ function App() {
           : item
       ),
       taxApiIntegration: result.ok
-        ? { ...prev.taxApiIntegration, lastIssuedAt: new Date().toISOString() }
-        : prev.taxApiIntegration
-    }));
+        ? { ...workingData.taxApiIntegration, lastIssuedAt: new Date().toISOString() }
+        : workingData.taxApiIntegration
+    };
+    await onPersistData(workingData).catch(() => setData(workingData));
     approvingIds.current.delete(quote.id);
     setApprovingQuoteId("");
+  };
+
+  const resendDocuments = async (quote: QuoteRecord) => {
+    if (approvingIds.current.has(quote.id)) return;
+    const customer = data.customers.find((item) => item.id === quote.customerId) ?? quote.customerSnapshot;
+    if (!customer?.email) {
+      window.alert("고객 이메일을 먼저 등록해 주세요.");
+      return;
+    }
+    approvingIds.current.add(quote.id);
+    setApprovingQuoteId(quote.id);
+    const sendingData: AppData = {
+      ...data,
+      quotes: data.quotes.map((item) => item.id === quote.id ? { ...item, documentEmailStatus: "sending" } : item)
+    };
+    setData(sendingData);
+    try {
+      await onPersistData(sendingData);
+      const result = await sendQuoteDocuments(quote, customer);
+      const nextData = {
+        ...sendingData,
+        quotes: sendingData.quotes.map((item) => item.id === quote.id ? {
+          ...item,
+          documentEmailStatus: result.ok ? "sent" as const : "failed" as const,
+          documentEmailRecipient: result.ok ? result.recipient || customer.email : item.documentEmailRecipient,
+          documentEmailSentAt: result.ok ? new Date().toISOString() : item.documentEmailSentAt,
+          documentEmailId: result.ok ? result.emailId : item.documentEmailId,
+          documentEmailNote: result.message
+        } : item)
+      };
+      await onPersistData(nextData);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setData((prev) => ({ ...prev, quotes: prev.quotes.map((item) => item.id === quote.id ? { ...item, documentEmailStatus: "failed", documentEmailNote: message } : item) }));
+    } finally {
+      approvingIds.current.delete(quote.id);
+      setApprovingQuoteId("");
+    }
   };
 
   const refreshInvoiceStatus = async (quote: QuoteRecord) => {
@@ -341,6 +450,8 @@ function App() {
       paymentStatus: "unpaid",
       approvedAt: undefined,
       invoiceDate: undefined,
+      transactionStatementMemo: "",
+      taxInvoiceMemo: "",
       invoiceStatus: "pending",
       invoiceNote: undefined,
       popbillInvoiceId: undefined,
@@ -358,7 +469,10 @@ function App() {
   const updateTaxApiIntegration = (taxApiIntegration: TaxApiIntegration) => {
     setData((prev) => ({
       ...prev,
-      taxApiIntegration
+      taxApiIntegration,
+      workspaceProfile: prev.workspaceProfile.businessName.trim() || !taxApiIntegration.corpName?.trim()
+        ? prev.workspaceProfile
+        : { ...prev.workspaceProfile, businessName: taxApiIntegration.corpName.trim() }
     }));
   };
 
@@ -424,8 +538,11 @@ function App() {
   };
 
   const exportCsv = (quote: QuoteRecord) => {
+    const documentAccount = data.workspaceProfile.paymentAccount.showOnDocuments && hasPaymentAccount(data.workspaceProfile)
+      ? paymentAccountText(data.workspaceProfile)
+      : "";
     const rows = [
-      ["견적ID", "발행일", "고객", "사업자번호", "프로젝트", "공급가", "부가세", "합계", "발행방식"],
+      ["견적ID", "발행일", "고객", "사업자번호", "프로젝트", "공급가", "부가세", "합계", "발행방식", "입금계좌", "세금계산서 비고"],
       [
         quote.id,
         quote.invoiceDate || today(),
@@ -435,7 +552,9 @@ function App() {
         quoteSubtotal(quote),
         quoteVat(quote),
         quoteTotal(quote),
-        quote.invoiceIssuanceMode
+        quote.invoiceIssuanceMode,
+        documentAccount,
+        quote.taxInvoiceMemo ?? ""
       ]
     ];
     const csv = rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
@@ -448,22 +567,24 @@ function App() {
     URL.revokeObjectURL(link.href);
   };
 
-  if (showLanding) {
-    return (
-      <Landing
-        onStart={startFromLanding}
-      />
-    );
-  }
+  const syncLabel = syncState === "saving" ? "저장 중" : syncState === "error" ? "저장 오류" : "저장됨";
+  const syncTitle = syncError || (lastSyncedAt ? `마지막 저장 ${new Date(lastSyncedAt).toLocaleString("ko-KR")}` : "계정 데이터 자동 저장");
+  const workspaceName = data.workspaceProfile.businessName.trim() || data.taxApiIntegration.corpName?.trim() || "블링빌";
+  const hasCustomBrand = workspaceName !== "블링빌" || Boolean(data.logoDataUrl);
 
   return (
     <div className="app">
       <aside className="sidebar">
         <div className="brand">
-          <span className="brand-mark">BB</span>
-          <div>
-            <strong>블링빌</strong>
-            <small>견적서·세금계산서 발행</small>
+          <span className={`brand-mark ${data.logoDataUrl ? "has-logo" : ""}`}>
+            {data.logoDataUrl ? <img src={data.logoDataUrl} alt={`${workspaceName} 로고`} /> : "BB"}
+          </span>
+          <div className="brand-copy">
+            <div className="brand-name-line">
+              <strong title={workspaceName}>{workspaceName}</strong>
+              {hasCustomBrand && <small>by 블링빌</small>}
+            </div>
+            <small>견적·발행·정산</small>
           </div>
         </div>
         <nav>
@@ -486,7 +607,7 @@ function App() {
             );
           })}
         </nav>
-        <button className="link sidebar-about" onClick={() => setShowLanding(true)}>
+        <button className="link sidebar-about" onClick={onShowLanding}>
           <Info size={14} /> 앱 소개
         </button>
       </aside>
@@ -494,21 +615,36 @@ function App() {
       <main>
         <header className="topbar">
           <div>
-            <p>블링빌</p>
+            <p className="workspace-context"><span>{workspaceName}</span>{hasCustomBrand && <small>블링빌</small>}</p>
             <h1>{nav.find((item) => item.id === view)?.label}</h1>
           </div>
-          {view === "quote" && (
-            <div className="top-actions">
-              <button className="ghost" onClick={handlePrint}>
-                <Printer size={17} /> PDF 다운로드
-              </button>
+          <div className="topbar-right">
+            {view === "quote" && (
+              <div className="top-actions">
+                <button className="ghost" onClick={handlePrint}>
+                  <Printer size={17} /> PDF 다운로드
+                </button>
+                <button onClick={createNewQuote}>
+                  <Plus size={17} /> 새 견적
+                </button>
+              </div>
+            )}
+            <div className="account-strip">
               <button
-                onClick={createNewQuote}
+                type="button"
+                className={`sync-indicator ${syncState}`}
+                title={syncTitle}
+                aria-label={`${syncLabel}. ${syncTitle}`}
+                onClick={syncState === "error" ? onRetrySync : undefined}
               >
-                <Plus size={17} /> 새 견적
+                <Cloud size={15} /> <span>{syncLabel}</span>
+              </button>
+              <span className="user-email" title={userEmail}><UserRound size={15} /> {userEmail}</span>
+              <button className="icon account-signout" type="button" title="로그아웃" aria-label="로그아웃" onClick={() => void onSignOut()}>
+                <LogOut size={17} />
               </button>
             </div>
-          )}
+          </div>
         </header>
 
         {view === "quote" && (
@@ -518,6 +654,7 @@ function App() {
             onSave={updateQuote}
             onApprove={approveQuote}
             logo={data.logoDataUrl}
+            workspaceProfile={data.workspaceProfile}
             itemSuggestions={itemSuggestions}
             isApproving={approvingQuoteId === activeQuote.id}
             onLogoChange={(logoDataUrl?: string) => setData((prev) => ({ ...prev, logoDataUrl }))}
@@ -563,19 +700,98 @@ function App() {
               }))
             }
             onRefreshStatus={refreshInvoiceStatus}
+            onSendDocuments={resendDocuments}
             onExportCsv={exportCsv}
             isApproving={Boolean(issueQuoteId && approvingQuoteId === issueQuoteId)}
             logo={data.logoDataUrl}
+            workspaceProfile={data.workspaceProfile}
           />
         )}
-        {view === "customers" && <CustomerManager data={data} setData={setData} />}
+        {view === "customers" && (
+          <CustomerManager
+            data={data}
+            setData={setData}
+            onSendUnpaidNotice={async (customerId) => {
+              await onPersistData(data);
+              return sendUnpaidNotice(customerId);
+            }}
+          />
+        )}
         {view === "vendors" && <VendorManager data={data} setData={setData} />}
         {view === "ledger" && <Ledger data={data} onPayment={recordPayment} onPurchasePayment={recordPurchasePayment} />}
         {view === "items" && <ItemInsights data={data} />}
         {view === "dashboard" && <Dashboard data={data} totals={totals} />}
-        {view === "settings" && <SettingsView integration={data.taxApiIntegration} onChange={updateTaxApiIntegration} data={data} onRestore={setData} />}
+        {view === "settings" && <SettingsView integration={data.taxApiIntegration} onChange={updateTaxApiIntegration} data={data} onRestore={setData} onDocumentEmailSettingsChange={(settings) => setData((prev) => ({ ...prev, documentEmailSettings: settings }))} onWorkspaceProfileChange={(workspaceProfile) => setData((prev) => ({ ...prev, workspaceProfile }))} onLogoChange={(logoDataUrl) => setData((prev) => ({ ...prev, logoDataUrl }))} />}
       </main>
+      <DocumentRenderStage
+        quote={activeQuote}
+        customer={activeQuote.customerSnapshot}
+        supplier={data.taxApiIntegration}
+        logo={data.logoDataUrl}
+        workspaceProfile={data.workspaceProfile}
+      />
     </div>
+  );
+}
+
+function App() {
+  const [showLanding, setShowLanding] = useState(() => !window.location.hash.includes("type=recovery") && !new URLSearchParams(window.location.search).has("email_connection"));
+  const auth = useAuthSession();
+  const cloud = useCloudAppData(auth.session?.user.id);
+
+  if (showLanding) {
+    return <Landing onStart={() => setShowLanding(false)} />;
+  }
+
+  if (!isSupabaseConfigured) {
+    return (
+      <AppLoading
+        error="로그인 서버 설정이 필요합니다. VITE_SUPABASE_URL과 VITE_SUPABASE_PUBLISHABLE_KEY를 확인해 주세요."
+        onRetry={() => window.location.reload()}
+      />
+    );
+  }
+
+  if (auth.loading) return <AppLoading />;
+
+  if (auth.isPasswordRecovery && auth.session) {
+    return <PasswordRecovery onComplete={auth.finishPasswordRecovery} />;
+  }
+
+  if (!auth.session) {
+    return <AuthScreen onBack={() => setShowLanding(true)} />;
+  }
+
+  if (cloud.loading || (!cloud.data && !cloud.loadError)) return <AppLoading />;
+
+  if (cloud.loadError || !cloud.data) {
+    return <AppLoading error={cloud.loadError || "데이터를 불러오지 못했습니다."} onRetry={() => window.location.reload()} />;
+  }
+
+  const signOut = async () => {
+    await cloud.flush();
+    const { error } = await requireSupabase().auth.signOut();
+    if (error) window.alert(`로그아웃하지 못했습니다. ${error.message}`);
+  };
+
+  return (
+    <>
+      <WorkspaceApp
+        data={cloud.data}
+        setData={cloud.setData}
+        userEmail={auth.session.user.email ?? "로그인 계정"}
+        syncState={cloud.syncState}
+        syncError={cloud.syncError}
+        lastSyncedAt={cloud.lastSyncedAt}
+        onRetrySync={cloud.retry}
+        onPersistData={cloud.persistNow}
+        onSignOut={signOut}
+        onShowLanding={() => setShowLanding(true)}
+      />
+      {cloud.migrationData && (
+        <DataMigrationPrompt data={cloud.migrationData} onImport={cloud.importLegacyData} onStartFresh={cloud.startFresh} />
+      )}
+    </>
   );
 }
 

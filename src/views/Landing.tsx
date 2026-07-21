@@ -4,7 +4,7 @@ const features = [
   {
     icon: FileText,
     title: "견적 작성·PDF",
-    body: "기존 견적 양식을 유지하면서 실시간 미리보기, 자동 저장, PDF 다운로드까지 이어집니다."
+    body: "기존 견적 양식을 유지하면서 실시간 미리보기, 자동 저장, PDF 다운로드와 고객 이메일 발송까지 이어집니다."
   },
   {
     icon: Receipt,
@@ -66,7 +66,7 @@ export function Landing({ onStart }: { onStart: () => void }) {
           <span>월간·연간 매출, 실제 입금·지출, 미수금과 추정 이익을 기간별로 확인할 수 있습니다.</span>
         </div>
 
-        <p className="landing-foot">현재 데이터는 이 브라우저에만 저장됩니다. 실제 세금계산서 발행은 팝빌 연결 후 활성화됩니다.</p>
+        <p className="landing-foot">업무 데이터는 로그인 계정별로 분리되어 서버에 자동 저장됩니다. 실제 세금계산서 발행은 팝빌 연결 후 활성화됩니다.</p>
       </div>
     </section>
   );

@@ -9,8 +9,29 @@ export const defaultData: AppData = {
   taxApiIntegration: {
     provider: "popbill",
     businessNumber: "",
+    corpName: "",
+    ceoName: "",
+    address: "",
+    bizType: "",
+    bizClass: "",
+    contactName: "",
+    contactPhone: "",
     contactEmail: "",
+    popbillUserId: "",
     isConnected: false,
     memo: ""
+  },
+  documentEmailSettings: {
+    autoSendOnApproval: true
+  },
+  workspaceProfile: {
+    businessName: "",
+    paymentAccount: {
+      bankName: "",
+      accountNumber: "",
+      accountHolder: "",
+      showOnDocuments: false,
+      showOnUnpaidNotices: true
+    }
   }
 };

@@ -22,6 +22,12 @@ export type IssueTaxInvoicePayload = {
   total: number;
   items: IssueTaxInvoiceItem[];
   customer: IssueTaxInvoiceCustomer;
+  taxInvoiceMemo?: string;
+  paymentAccount?: {
+    bankName: string;
+    accountNumber: string;
+    accountHolder: string;
+  };
 };
 
 export type IssueTaxInvoiceResult = {
@@ -35,9 +41,8 @@ export type IssueTaxInvoiceResult = {
 
 export async function issueTaxInvoice(payload: IssueTaxInvoicePayload): Promise<IssueTaxInvoiceResult> {
   try {
-    const response = await fetch("/api/popbill/issue", {
+    const response = await authorizedFetch("/api/popbill/issue", {
       method: "POST",
-      credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     });
@@ -64,9 +69,7 @@ export async function issueTaxInvoice(payload: IssueTaxInvoicePayload): Promise<
 
 export async function getTaxInvoiceStatus(popbillInvoiceId: string): Promise<IssueTaxInvoiceResult> {
   try {
-    const response = await fetch(`/api/popbill/detail?mgtKey=${encodeURIComponent(popbillInvoiceId)}`, {
-      credentials: "same-origin"
-    });
+    const response = await authorizedFetch(`/api/popbill/detail?mgtKey=${encodeURIComponent(popbillInvoiceId)}`);
     const result = (await response.json()) as IssueTaxInvoiceResult;
     if (!response.ok) {
       return {
@@ -84,3 +87,4 @@ export async function getTaxInvoiceStatus(popbillInvoiceId: string): Promise<Iss
     };
   }
 }
+import { authorizedFetch } from "./authorized-fetch";

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Building2, Check, Pencil, Phone, Plus, Search, Trash2, UserRound, X } from "lucide-react";
+import { Building2, Check, Landmark, LoaderCircle, Mail, Pencil, Phone, Plus, Search, Trash2, UserRound, X } from "lucide-react";
 import type { AppData, Customer, InvoicePreference } from "../types";
 import { money } from "../lib/format";
 import { quoteTotal } from "../lib/quote-calc";
@@ -11,19 +11,29 @@ import { AddressInput } from "../components/AddressInput";
 import { TextArea } from "../components/TextArea";
 import { Status } from "../components/Status";
 import { formatBusinessNumber, formatPhoneNumber } from "../lib/input-format";
+import { hasPaymentAccount, paymentAccountText } from "../lib/payment-account";
+import type { UnpaidNoticeResult } from "../lib/unpaid-notice";
 
-export function CustomerManager({ data, setData }: { data: AppData; setData: React.Dispatch<React.SetStateAction<AppData>> }) {
+export function CustomerManager({ data, setData, onSendUnpaidNotice }: { data: AppData; setData: React.Dispatch<React.SetStateAction<AppData>>; onSendUnpaidNotice: (customerId: string) => Promise<UnpaidNoticeResult> }) {
   const [activeCustomerId, setActiveCustomerId] = useState<string | null>(null);
   const [customerSearch, setCustomerSearch] = useState("");
   const [editMode, setEditMode] = useState(false);
   const [newCustomerId, setNewCustomerId] = useState<string | null>(null);
   const [returnCustomerId, setReturnCustomerId] = useState<string | null>(null);
+  const [sendingUnpaidNotice, setSendingUnpaidNotice] = useState(false);
+  const [unpaidNoticeMessage, setUnpaidNoticeMessage] = useState<{ tone: "success" | "danger"; text: string } | null>(null);
   const activeCustomer = activeCustomerId
     ? data.customers.find((customer) => customer.id === activeCustomerId)
     : undefined;
   const isCreatingCustomer = activeCustomer?.id === newCustomerId;
   const customerQuotes = data.quotes.filter((quote) => quote.customerId === activeCustomer?.id);
   const customerSales = data.sales.filter((sale) => sale.customerId === activeCustomer?.id);
+  const customerUnpaidSales = customerSales.map((sale) => {
+    const quote = data.quotes.find((item) => item.id === sale.quoteId);
+    return { sale, quote, balance: Math.max(0, sale.amount - sale.paidAmount) };
+  }).filter((item) => item.balance > 0);
+  const unpaidTotal = customerUnpaidSales.reduce((sum, item) => sum + item.balance, 0);
+  const unpaidAccountReady = data.workspaceProfile.paymentAccount.showOnUnpaidNotices && hasPaymentAccount(data.workspaceProfile);
   const filteredCustomers = data.customers.filter((customer) =>
     `${customer.name} ${customer.contactPerson} ${customer.businessNumber ?? ""} ${customer.contact} ${customer.email ?? ""}`.toLowerCase().includes(customerSearch.toLowerCase())
   );
@@ -86,6 +96,27 @@ export function CustomerManager({ data, setData }: { data: AppData; setData: Rea
     setActiveCustomerId(null);
     setEditMode(false);
   };
+  const sendCustomerUnpaidNotice = async () => {
+    if (!activeCustomer || sendingUnpaidNotice) return;
+    setSendingUnpaidNotice(true);
+    setUnpaidNoticeMessage(null);
+    try {
+      const result = await onSendUnpaidNotice(activeCustomer.id);
+      const sentAt = new Date().toISOString();
+      patchCustomer(activeCustomer.id, {
+        unpaidNoticeSentAt: sentAt,
+        unpaidNoticeRecipient: result.recipient,
+        unpaidNoticeAmount: result.totalAmount,
+        unpaidNoticeEmailId: result.emailId,
+        unpaidNoticeNote: result.message
+      });
+      setUnpaidNoticeMessage({ tone: "success", text: result.message || "미수금 안내를 발송했습니다." });
+    } catch (error) {
+      setUnpaidNoticeMessage({ tone: "danger", text: error instanceof Error ? error.message : String(error) });
+    } finally {
+      setSendingUnpaidNotice(false);
+    }
+  };
   const patchCustomer = (id: string, patch: Partial<Customer>) => {
     setData((prev) => ({
       ...prev,
@@ -141,6 +172,7 @@ export function CustomerManager({ data, setData }: { data: AppData; setData: Rea
                   }
                   setActiveCustomerId(customer.id);
                   setEditMode(false);
+                  setUnpaidNoticeMessage(null);
                 }}
               >
                 <span className="crm-card-head">
@@ -265,6 +297,50 @@ export function CustomerManager({ data, setData }: { data: AppData; setData: Rea
                 <div className="customer-info-item"><span>CRM 메모</span><strong>{activeCustomer.memo || "-"}</strong></div>
               </div>
             )}
+          </div>
+          <div className="panel crm-unpaid-panel">
+            <div className="crm-unpaid-head">
+              <SectionTitle title="미수금 내역" hint="저장된 매출과 수금액을 기준으로 자동 계산됩니다." />
+              <button
+                type="button"
+                disabled={sendingUnpaidNotice || !customerUnpaidSales.length || !activeCustomer.email || !unpaidAccountReady}
+                title={!activeCustomer.email ? "고객 이메일을 먼저 등록해 주세요." : !unpaidAccountReady ? "설정에서 미수금 안내용 입금계좌를 등록해 주세요." : !customerUnpaidSales.length ? "발송할 미수금이 없습니다." : "고객 이메일로 미수금 내역을 발송합니다."}
+                onClick={() => void sendCustomerUnpaidNotice()}
+              >
+                {sendingUnpaidNotice ? <LoaderCircle className="spin" size={16} /> : <Mail size={16} />}
+                {sendingUnpaidNotice ? "발송 중" : "미수금 안내 발송"}
+              </button>
+            </div>
+            {customerUnpaidSales.length ? (
+              <>
+                <div className={`unpaid-account-strip ${unpaidAccountReady ? "" : "needs-setting"}`}>
+                  <Landmark size={17} />
+                  <span>입금계좌</span>
+                  <strong>{unpaidAccountReady ? paymentAccountText(data.workspaceProfile) : "설정에서 계좌를 등록하고 미수금 안내 표시를 켜 주세요."}</strong>
+                </div>
+                <div className="table-wrap unpaid-table-wrap">
+                  <table className="unpaid-table">
+                    <thead><tr><th>발생일</th><th>거래</th><th>거래액</th><th>수금액</th><th>미수금</th></tr></thead>
+                    <tbody>
+                      {customerUnpaidSales.map(({ sale, quote, balance }) => (
+                        <tr key={sale.id}>
+                          <td>{String(quote?.approvedAt || quote?.form.quoteDate || sale.createdAt).slice(0, 10)}</td>
+                          <td><strong>{quote?.form.projectName || "거래"}</strong></td>
+                          <td>{money(sale.amount)}원</td>
+                          <td>{money(sale.paidAmount)}원</td>
+                          <td className="unpaid-amount">{money(balance)}원</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot><tr><td colSpan={4}>총 미수금</td><td>{money(unpaidTotal)}원</td></tr></tfoot>
+                  </table>
+                </div>
+              </>
+            ) : <p className="empty unpaid-empty">현재 미수금이 없습니다.</p>}
+            {activeCustomer.unpaidNoticeSentAt && (
+              <p className="unpaid-notice-meta">최근 발송: {new Date(activeCustomer.unpaidNoticeSentAt).toLocaleString("ko-KR")} · {activeCustomer.unpaidNoticeRecipient} · {money(activeCustomer.unpaidNoticeAmount ?? 0)}원</p>
+            )}
+            {unpaidNoticeMessage && <p className={`form-notice ${unpaidNoticeMessage.tone}`}>{unpaidNoticeMessage.text}</p>}
           </div>
           <div className="panel crm-timeline-panel">
             <SectionTitle title="거래 타임라인" hint="견적, 승인, 수금 이력이 고객별로 모입니다." />

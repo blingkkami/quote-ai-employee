@@ -1,16 +1,12 @@
 import popbill from "popbill";
-import { hasValidAccessToken, isAccessTokenConfigured, rejectPopbillAccess } from "./auth.js";
+import { authorizeRequest, getUserConnection } from "./auth.js";
 
 const LINK_ID = process.env.POPBILL_LINK_ID;
 const SECRET_KEY = process.env.POPBILL_SECRET_KEY;
-const CORP_NUM = process.env.POPBILL_CORP_NUM;
-const CORP_NAME = process.env.POPBILL_CORP_NAME || "";
-const CEO_NAME = process.env.POPBILL_CEO_NAME || "";
-const USER_ID = process.env.POPBILL_USER_ID || "";
 const IS_TEST = process.env.POPBILL_IS_TEST !== "false"; // default sandbox
 
 const onlyDigits = (value) => String(value ?? "").replace(/\D/g, "");
-const hasCredentials = Boolean(LINK_ID && SECRET_KEY && CORP_NUM && CORP_NAME && CEO_NAME);
+const hasCredentials = Boolean(LINK_ID && SECRET_KEY);
 
 // Configure the SDK once, guarded by credential presence.
 let taxinvoiceService = null;
@@ -32,16 +28,15 @@ export default async function handler(request, response) {
     response.status(405).json({ ok: false, message: "Method not allowed" });
     return;
   }
-  if (!isAccessTokenConfigured()) {
-    rejectPopbillAccess(response, 503);
-    return;
-  }
-  if (!hasValidAccessToken(request)) {
-    rejectPopbillAccess(response);
-    return;
-  }
+  const auth = await authorizeRequest(request, response);
+  if (!auth) return;
 
   try {
+    const connection = await getUserConnection(auth.client, auth.user.id);
+    if (!connection) {
+      response.status(409).json({ ok: false, invoiceStatus: "pending", message: "설정에서 팝빌 자동발행을 먼저 연결해 주세요." });
+      return;
+    }
     let body = request.body || {};
     if (typeof body === "string") {
       try {
@@ -59,7 +54,9 @@ export default async function handler(request, response) {
       tax,
       total,
       items = [],
-      customer = {}
+      customer = {},
+      taxInvoiceMemo,
+      paymentAccount
     } = body;
 
     // Validation
@@ -103,9 +100,18 @@ export default async function handler(request, response) {
     }
 
     // Real issuance via Popbill SDK.
-    const supplierCorpNum = onlyDigits(CORP_NUM);
+    const supplierCorpNum = onlyDigits(connection.corp_num);
     // A stable key makes retries idempotent at Popbill as well as in the browser.
     const invoicerMgtKey = String(quoteId).replace(/[^A-Za-z0-9_-]/g, "-").slice(0, 24);
+    const safeAccount = paymentAccount && {
+      bankName: String(paymentAccount.bankName || "").replace(/[\r\n]/g, " ").trim(),
+      accountNumber: String(paymentAccount.accountNumber || "").replace(/[\r\n]/g, " ").trim(),
+      accountHolder: String(paymentAccount.accountHolder || "").replace(/[\r\n]/g, " ").trim()
+    };
+    const accountRemark = safeAccount?.bankName && safeAccount.accountNumber && safeAccount.accountHolder
+      ? `입금계좌: ${safeAccount.bankName} ${safeAccount.accountNumber} (예금주 ${safeAccount.accountHolder})`.slice(0, 150)
+      : "";
+    const manualRemark = String(taxInvoiceMemo || "").replace(/[\r\n]+/g, " ").trim().slice(0, 150);
 
     const taxinvoice = {
       writeDate: writeDateDigits,
@@ -114,8 +120,8 @@ export default async function handler(request, response) {
       purposeType: "청구",
       taxType: "과세",
       invoicerCorpNum: supplierCorpNum,
-      invoicerCorpName: CORP_NAME,
-      invoicerCEOName: CEO_NAME,
+      invoicerCorpName: connection.corp_name || "",
+      invoicerCEOName: connection.ceo_name || "",
       invoicerMgtKey,
       invoiceeType: "사업자",
       invoiceeCorpNum: customerCorpNum,
@@ -127,6 +133,8 @@ export default async function handler(request, response) {
       supplyCostTotal: String(supplyCost),
       taxTotal: String(tax),
       totalAmount: String(total),
+      ...(accountRemark ? { remark1: accountRemark } : {}),
+      ...(manualRemark ? { remark2: manualRemark } : {}),
       detailList: (Array.isArray(items) ? items : []).map((item, i) => ({
         serialNum: i + 1,
         itemName: item.name,
@@ -147,7 +155,7 @@ export default async function handler(request, response) {
         `견적 ${projectName || quoteId} 세금계산서`, // memo
         "", // emailSubject
         "", // dealInvoiceMgtKey
-        USER_ID, // UserID
+        connection.popbill_user_id || "", // UserID
         (issueResult) => resolve({ ok: true, issueResult }),
         (error) => resolve({ ok: false, error })
       );

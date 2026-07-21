@@ -1,57 +1,48 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { hasValidAccessToken, POPBILL_SESSION_COOKIE } from "./auth.js";
-import handler from "./connect.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const originalToken = process.env.POPBILL_ACCESS_TOKEN;
-const makeResponse = () => ({
-  statusCode: 200,
-  body: null,
-  headers: {},
-  status(code) { this.statusCode = code; return this; },
-  setHeader(name, value) { this.headers[name] = value; return this; },
-  json(body) { this.body = body; return this; }
-});
+const mocks = vi.hoisted(() => ({
+  checkIsMember: vi.fn(),
+  joinMember: vi.fn(),
+  getUserConnection: vi.fn(),
+  getConnectionByCorpNum: vi.fn(),
+  saveUserConnection: vi.fn(),
+  removeUserConnection: vi.fn()
+}));
+
+vi.mock("popbill", () => ({ default: { config: vi.fn(), TaxinvoiceService: () => ({ checkIsMember: mocks.checkIsMember, joinMember: mocks.joinMember }) } }));
+vi.mock("./auth.js", () => ({
+  authorizeRequest: async () => ({ user: { id: "user-1" }, admin: {} }),
+  getUserConnection: mocks.getUserConnection,
+  getConnectionByCorpNum: mocks.getConnectionByCorpNum,
+  saveUserConnection: mocks.saveUserConnection,
+  removeUserConnection: mocks.removeUserConnection
+}));
+
+const makeResponse = () => ({ statusCode: 200, body: null, headers: {}, status(code) { this.statusCode = code; return this; }, setHeader(name, value) { this.headers[name] = value; }, json(body) { this.body = body; return this; } });
 
 beforeEach(() => {
-  process.env.POPBILL_ACCESS_TOKEN = "one-time-secret-token";
+  vi.resetModules();
+  Object.assign(process.env, { POPBILL_LINK_ID: "link", POPBILL_SECRET_KEY: "secret" });
+  Object.values(mocks).forEach((mock) => mock.mockReset());
+  mocks.getUserConnection.mockResolvedValue(null);
+  mocks.getConnectionByCorpNum.mockResolvedValue(null);
 });
 
-afterEach(() => {
-  if (originalToken === undefined) delete process.env.POPBILL_ACCESS_TOKEN;
-  else process.env.POPBILL_ACCESS_TOKEN = originalToken;
-});
-
-describe("Popbill persistent browser connection", () => {
-  it("rejects an incorrect one-time access token", async () => {
+describe("Popbill tenant connection", () => {
+  it("blocks a business number already connected to another user", async () => {
+    mocks.getConnectionByCorpNum.mockResolvedValue({ user_id: "user-2", corp_num: "1112233333" });
+    const { default: handler } = await import("./connect.js");
     const response = makeResponse();
-    await handler({ method: "POST", body: { accessToken: "wrong" } }, response);
-
-    expect(response.statusCode).toBe(401);
-    expect(response.headers["Set-Cookie"]).toBeUndefined();
+    await handler({ method: "POST", body: { mode: "check", businessNumber: "111-22-33333" } }, response);
+    expect(response.statusCode).toBe(409);
+    expect(mocks.checkIsMember).not.toHaveBeenCalled();
   });
 
-  it("sets a signed HttpOnly cookie without exposing the raw token", async () => {
+  it("offers one-step signup when the business is not a Popbill member", async () => {
+    mocks.checkIsMember.mockImplementation((_corpNum, success) => success({ code: 0 }));
+    const { default: handler } = await import("./connect.js");
     const response = makeResponse();
-    await handler({ method: "POST", body: { accessToken: "one-time-secret-token" } }, response);
-
-    const setCookie = response.headers["Set-Cookie"];
-    expect(response.statusCode).toBe(200);
-    expect(setCookie).toContain(`${POPBILL_SESSION_COOKIE}=`);
-    expect(setCookie).toContain("HttpOnly");
-    expect(setCookie).toContain("SameSite=Strict");
-    expect(setCookie).toContain("Max-Age=34560000");
-    expect(setCookie).not.toContain("one-time-secret-token");
-
-    const cookie = setCookie.split(";")[0];
-    expect(hasValidAccessToken({ headers: { cookie } })).toBe(true);
-  });
-
-  it("clears the persistent connection on request", async () => {
-    const response = makeResponse();
-    await handler({ method: "DELETE" }, response);
-
-    expect(response.statusCode).toBe(200);
-    expect(response.headers["Set-Cookie"]).toContain(`${POPBILL_SESSION_COOKIE}=`);
-    expect(response.headers["Set-Cookie"]).toContain("Max-Age=0");
+    await handler({ method: "POST", body: { mode: "check", businessNumber: "111-22-33333" } }, response);
+    expect(response.body).toMatchObject({ ok: true, configured: false, needsSignup: true });
   });
 });

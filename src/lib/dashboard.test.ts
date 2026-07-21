@@ -6,6 +6,8 @@ const data: AppData = {
   quotes: [],
   customers: [],
   vendors: [],
+  documentEmailSettings: { autoSendOnApproval: true },
+  workspaceProfile: { businessName: "", paymentAccount: { bankName: "", accountNumber: "", accountHolder: "", showOnDocuments: false, showOnUnpaidNotices: true } },
   taxApiIntegration: { provider: "popbill", businessNumber: "", contactEmail: "", isConnected: false },
   sales: [
     {

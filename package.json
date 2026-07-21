@@ -10,10 +10,12 @@
     "preview": "vite preview --host 127.0.0.1"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.110.7",
     "@vitejs/plugin-react": "latest",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
     "lucide-react": "latest",
+    "nodemailer": "^9.0.3",
     "popbill": "^1.64.2",
     "react": "latest",
     "react-dom": "latest",

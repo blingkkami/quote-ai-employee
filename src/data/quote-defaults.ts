@@ -58,6 +58,8 @@ export const emptyQuote = (): QuoteRecord => ({
   },
   items: [{ id: uid("item"), category: "", description: "", price: 0 }],
   invoiceIssuanceMode: "auto",
+  transactionStatementMemo: "",
+  taxInvoiceMemo: "",
   invoiceType: { issueInvoice: true, issueCashReceipt: false },
   invoiceStatus: "pending",
   createdAt: now(),
