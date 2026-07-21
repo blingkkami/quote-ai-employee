@@ -2,146 +2,187 @@ import {
   ArrowRight,
   BarChart3,
   Building2,
+  Check,
   CheckCircle2,
+  FileCheck2,
   FileText,
   HandCoins,
   Landmark,
+  LockKeyhole,
   Mail,
   Receipt,
   Search,
+  Send,
   ShieldCheck,
   Stamp,
   Users
 } from "lucide-react";
 
-const features = [
+const workflow = [
+  { number: "01", title: "견적 작성", body: "고객과 항목을 입력하면 문서가 실시간으로 완성됩니다." },
+  { number: "02", title: "승인·발행", body: "승인된 견적을 거래명세서와 세금계산서로 이어갑니다." },
+  { number: "03", title: "고객 발송", body: "연결한 내 메일로 필요한 문서를 고객에게 보냅니다." },
+  { number: "04", title: "수금·매입", body: "부분 수금과 매입 지급을 날짜별로 기록합니다." },
+  { number: "05", title: "미수·손익 확인", body: "남은 금액과 사업 흐름을 대시보드에서 확인합니다." }
+];
+
+const featureCards = [
   {
     icon: FileText,
     title: "견적서·거래명세서",
-    body: "익숙한 견적 양식을 그대로 사용하고, 실시간 미리보기와 자동 저장을 거쳐 PDF 문서로 발행합니다."
+    body: "실시간 미리보기와 자동 저장으로 작성하고, 로고와 도장이 반영된 PDF로 발행합니다."
   },
   {
     icon: Receipt,
-    title: "승인·세금계산서",
-    body: "발행일과 비고를 확인한 뒤 승인합니다. 팝빌을 한 번 연결하면 이후 자동발행 흐름으로 이어집니다."
+    title: "세금계산서 발행",
+    body: "팝빌 연동이 완료된 사용자만 승인 흐름에서 실제 세금계산서를 발행하도록 구분합니다."
   },
   {
     icon: Users,
     title: "고객·매입처 관리",
-    body: "고객과 매입처는 목록에서 빠르게 검색하고, 상세 화면에서 사업자 정보와 모든 거래 이력을 확인합니다."
+    body: "목록에서 빠르게 검색하고 상세 화면에서 사업자 정보와 전체 거래 내역을 확인합니다."
   },
   {
     icon: HandCoins,
-    title: "수금·매입 통합 원장",
-    body: "부분 수금과 부분 지급을 날짜별로 기록해 매출·매입·미수금·미지급금을 한곳에서 관리합니다."
+    title: "수금·매입 원장",
+    body: "부분 수금, 부분 지급, 미수금과 미지급금을 실제 입출금 날짜에 맞춰 관리합니다."
   },
   {
     icon: Mail,
-    title: "내 메일로 고객 발송",
-    body: "사용자의 발신메일을 한 번 연결한 뒤 견적서·거래명세서와 미수금 안내를 고객에게 바로 보냅니다."
+    title: "내 메일로 자동 발송",
+    body: "Gmail·Microsoft·네이버·회사 메일을 연결해 문서와 미수금 안내를 내 주소로 보냅니다."
   },
   {
-    icon: ShieldCheck,
-    title: "사업장별 안전한 데이터",
-    body: "로그인 계정별로 업무 데이터가 분리 저장되어 다른 사용자에게 노출되지 않고 어느 기기에서나 이어집니다."
+    icon: BarChart3,
+    title: "기간별 운영 현황",
+    body: "월간·연간 매출, 수금, 매입, 미수금과 추정 이익을 한 화면에서 비교합니다."
   }
 ];
 
-const workflow = ["견적 작성", "승인 처리", "문서·세금계산서", "수금·매입", "미수·손익 확인"];
-
-const previewNav = [
-  [FileText, "견적 생성"],
-  [Receipt, "승인·발행"],
-  [Users, "고객 관리"],
-  [Building2, "매입처 관리"],
-  [BarChart3, "대시보드"]
-] as const;
+const faqs = [
+  {
+    question: "팝빌 정보는 사용할 때마다 입력해야 하나요?",
+    answer: "아니요. 세금계산서를 발행할 사업자가 최초 한 번 연동하면 설정이 유지되고, 이후에는 승인된 발행 건에 사용됩니다. 연동되지 않은 계정은 실제 발행 완료로 표시하지 않습니다."
+  },
+  {
+    question: "네이버 메일이나 회사 메일도 연결할 수 있나요?",
+    answer: "Gmail과 Microsoft 계정은 간편 연결 방식으로, 네이버와 일반 회사 메일은 SMTP 정보로 한 번 연결해 계속 사용하는 구조입니다."
+  },
+  {
+    question: "견적서에도 입금 계좌가 표시되나요?",
+    answer: "아니요. 입금 계좌는 거래명세서와 세금계산서, 미수금 안내에만 표시하며 견적서에는 노출하지 않습니다."
+  },
+  {
+    question: "다른 사용자가 제 고객 정보를 볼 수 있나요?",
+    answer: "로그인 계정별로 업무 데이터를 분리 저장하며, 데이터베이스 보안 정책에서도 본인 데이터만 접근하도록 제한합니다."
+  }
+];
 
 export function Landing({ onStart }: { onStart: () => void }) {
   return (
-    <section className="landing">
-      <div className="landing-inner">
-        <header className="landing-hero">
-          <span className="brand-mark landing-mark">BB</span>
-          <p className="landing-kicker">견적·발행·정산을 한 흐름으로</p>
-          <h1 className="landing-title">블링빌</h1>
-          <p className="landing-tagline">견적서를 만드는 순간부터 고객 발송, 세금계산서, 수금과 매입, 미수금 관리까지 사업장의 반복 업무를 이어서 처리합니다.</p>
-          <button className="landing-cta" onClick={onStart}>로그인하고 시작하기 <ArrowRight size={17} /></button>
-
-          <div className="landing-quick-points" aria-label="핵심 특징">
-            <span><ShieldCheck size={15} /> 사용자별 분리 저장</span>
-            <span><Stamp size={15} /> 로고·도장 문서 반영</span>
-            <span><Mail size={15} /> 고객 이메일 발송</span>
-            <span><Landmark size={15} /> 계좌·미수금 안내</span>
+    <div className="landing landing-sales">
+      <header className="landing-nav-shell">
+        <nav className="landing-nav" aria-label="소개 메뉴">
+          <a className="landing-nav-brand" href="#top" aria-label="블링빌 처음으로">
+            <span>BB</span>
+            <strong>블링빌</strong>
+          </a>
+          <div className="landing-nav-links">
+            <a href="#workflow">업무 흐름</a>
+            <a href="#features">주요 기능</a>
+            <a href="#setup">연결 설정</a>
+            <a href="#faq">자주 묻는 질문</a>
           </div>
+          <button className="landing-nav-login" onClick={onStart}>로그인</button>
+        </nav>
+      </header>
 
-          <div className="landing-product-preview" aria-label="블링빌 운영 화면 예시">
-            <aside className="landing-preview-sidebar">
-              <div className="landing-preview-brand"><span>BB</span><strong>우리 스튜디오</strong><small>by 블링빌</small></div>
-              <nav>
-                {previewNav.map(([Icon, label], index) => (
-                  <div className={index === 4 ? "active" : ""} key={label}><Icon size={14} /><span>{label}</span></div>
-                ))}
-              </nav>
-            </aside>
-            <div className="landing-preview-main">
-              <div className="landing-preview-topbar">
-                <div><strong>7월 운영 현황</strong><span>매출과 수금 흐름을 확인하세요.</span></div>
-                <span className="landing-preview-saved"><CheckCircle2 size={14} /> 저장됨</span>
-              </div>
-              <div className="landing-preview-kpis">
-                <div><span>이번 달 매출</span><strong>3,850,000원</strong><small>승인 견적 8건</small></div>
-                <div><span>수금 완료</span><strong>3,120,000원</strong><small>입금 내역 11건</small></div>
-                <div className="unpaid"><span>미수금</span><strong>730,000원</strong><small>고객 3곳 확인 필요</small></div>
-              </div>
-              <div className="landing-preview-content">
-                <section className="landing-preview-list">
-                  <div className="landing-preview-section-head"><strong>최근 거래</strong><span><Search size={13} /> 빠른 검색</span></div>
-                  <div className="landing-preview-row head"><span>고객</span><span>프로젝트</span><span>상태</span><span>금액</span></div>
-                  <div className="landing-preview-row"><strong>라이트 코스메틱</strong><span>상세페이지</span><i className="paid">수금완료</i><b>1,320,000원</b></div>
-                  <div className="landing-preview-row"><strong>모노 스튜디오</strong><span>브랜드 디자인</span><i className="partial">부분수금</i><b>880,000원</b></div>
-                  <div className="landing-preview-row"><strong>오브제 컴퍼니</strong><span>제품 비주얼</span><i className="pending">미수관리</i><b>550,000원</b></div>
-                </section>
-                <section className="landing-preview-document">
-                  <div className="landing-preview-document-head"><span>거래명세서</span><small>2026년 7월 21일</small></div>
-                  <div className="landing-preview-document-line"><span>공급받는 자</span><strong>모노 스튜디오</strong></div>
-                  <div className="landing-preview-document-line"><span>합계금액</span><strong>880,000원</strong></div>
-                  <div className="landing-preview-document-line account"><span>입금계좌</span><strong>국민은행 · 예금주 김대표</strong></div>
-                  <div className="landing-preview-document-foot"><Stamp size={18} /><span>우리 스튜디오</span></div>
-                </section>
-              </div>
+      <main id="top">
+        <section className="landing-hero">
+          <div className="landing-hero-copy">
+            <p className="landing-kicker">견적·발행·정산 통합 업무 도구</p>
+            <h1>블링빌</h1>
+            <strong>견적부터 입금 확인까지, 끊김 없이 한 번에</strong>
+            <p>문서를 만들고 고객에게 보내는 일부터 세금계산서, 수금과 매입, 미수금 관리까지 반복되는 사업장 업무를 하나의 흐름으로 연결합니다.</p>
+            <div className="landing-hero-actions">
+              <button onClick={onStart}>로그인하고 시작하기 <ArrowRight size={18} /></button>
+              <a href="#workflow">업무 흐름 보기</a>
+            </div>
+            <div className="landing-hero-proof" aria-label="블링빌 핵심 특징">
+              <span><Check size={15} /> 자동 저장</span>
+              <span><Check size={15} /> 사용자별 분리</span>
+              <span><Check size={15} /> 로고·도장 적용</span>
+              <span><Check size={15} /> 내 메일 발송</span>
             </div>
           </div>
-        </header>
 
-        <section className="landing-section" aria-labelledby="landing-flow-title">
+          <figure className="landing-product-stage">
+            <div className="landing-stage-toolbar">
+              <span><i /> <i /> <i /></span>
+              <strong>우리 사업장의 오늘을 한눈에</strong>
+              <span className="landing-stage-status"><CheckCircle2 size={14} /> 자동 저장됨</span>
+            </div>
+            <div className="landing-stage-preview-crop">
+              <img src="/blingbill-dashboard-preview.png" alt="블링빌 대시보드에서 매출, 수금, 미수금과 거래명세서를 확인하는 화면" />
+            </div>
+          </figure>
+        </section>
+
+        <section className="landing-document-strip" aria-label="지원 업무">
+          <div><FileText size={19} /><span><strong>견적서</strong>실시간 미리보기·PDF</span></div>
+          <div><FileCheck2 size={19} /><span><strong>거래명세서</strong>계좌·비고·도장 반영</span></div>
+          <div><Receipt size={19} /><span><strong>세금계산서</strong>팝빌 연동 발행</span></div>
+          <div><Send size={19} /><span><strong>미수금 안내</strong>고객 이메일 발송</span></div>
+        </section>
+
+        <section className="landing-section landing-workflow" id="workflow">
           <div className="landing-section-heading">
-            <p>업무 흐름</p>
-            <h2 id="landing-flow-title">한 번 입력한 정보가 다음 업무로 이어집니다</h2>
-            <span>같은 고객 정보와 금액을 문서마다 다시 입력하지 않아도 됩니다.</span>
+            <p>하나로 이어지는 업무</p>
+            <h2>한 번 입력한 정보가 다음 단계로 이어집니다</h2>
+            <span>같은 고객 정보와 금액을 문서마다 다시 입력하지 않고, 승인부터 정산까지 연결합니다.</span>
           </div>
-          <div className="landing-flow" aria-label="블링빌 업무 흐름">
+          <div className="landing-workflow-list">
             {workflow.map((step, index) => (
-              <div className="landing-flow-step" key={step}>
-                <span>{index + 1}</span>
-                <strong>{step}</strong>
-                {index < workflow.length - 1 && <ArrowRight aria-hidden="true" size={16} />}
-              </div>
+              <article key={step.number}>
+                <span>{step.number}</span>
+                <div><strong>{step.title}</strong><p>{step.body}</p></div>
+                {index < workflow.length - 1 && <ArrowRight size={17} aria-hidden="true" />}
+              </article>
             ))}
           </div>
         </section>
 
-        <section className="landing-section" aria-labelledby="landing-features-title">
-          <div className="landing-section-heading">
-            <p>주요 기능</p>
-            <h2 id="landing-features-title">실제 운영에 필요한 기능을 한곳에</h2>
+        <section className="landing-operation-band">
+          <div className="landing-operation-copy">
+            <p>빠르게 찾고, 바로 처리합니다</p>
+            <h2>고객과 거래가 늘어나도<br />복잡해지지 않도록</h2>
+            <span>고객과 매입처는 먼저 깔끔한 목록으로 확인하고, 검색하거나 클릭하면 상세 정보와 관련 거래 내역이 한 화면에 열립니다.</span>
+            <ul>
+              <li><Search size={16} /> 이름·사업자번호·연락처 통합 검색</li>
+              <li><Users size={16} /> 고객별 누적 매출과 미수금 확인</li>
+              <li><Building2 size={16} /> 매입처별 지급·미지급 내역 관리</li>
+            </ul>
           </div>
-          <div className="landing-grid">
-            {features.map((feature) => {
+          <div className="landing-operation-demo" aria-label="고객과 거래 검색 화면 예시">
+            <div className="landing-demo-search"><Search size={16} /><span>고객명, 사업자번호, 프로젝트 검색</span><kbd>Ctrl K</kbd></div>
+            <div className="landing-demo-head"><span>고객</span><span>최근 거래</span><span>누적 매출</span><span>미수금</span></div>
+            <div className="landing-demo-row active"><span><i>라</i><strong>라이트 코스메틱<small>214-88-12031</small></strong></span><span>상세페이지 제작</span><b>4,620,000원</b><em>0원</em></div>
+            <div className="landing-demo-row"><span><i>모</i><strong>모노 스튜디오<small>대표 김모노</small></strong></span><span>브랜드 디자인</span><b>2,310,000원</b><em>440,000원</em></div>
+            <div className="landing-demo-row"><span><i>오</i><strong>오브제 컴퍼니<small>106-14-82110</small></strong></span><span>제품 비주얼</span><b>1,980,000원</b><em>290,000원</em></div>
+          </div>
+        </section>
+
+        <section className="landing-section" id="features">
+          <div className="landing-section-heading">
+            <p>실제 운영을 위한 기능</p>
+            <h2>문서 작성에서 손익 확인까지 한곳에</h2>
+          </div>
+          <div className="landing-feature-grid">
+            {featureCards.map((feature) => {
               const Icon = feature.icon;
               return (
-                <article className="landing-card" key={feature.title}>
-                  <span className="landing-card-icon"><Icon size={20} /></span>
+                <article key={feature.title}>
+                  <span><Icon size={20} /></span>
                   <strong>{feature.title}</strong>
                   <p>{feature.body}</p>
                 </article>
@@ -150,22 +191,48 @@ export function Landing({ onStart }: { onStart: () => void }) {
           </div>
         </section>
 
-        <section className="landing-setup-band">
-          <div><Stamp size={19} /><span><strong>사업장 브랜딩</strong>로고와 도장을 등록하면 앱과 문서에 계속 적용됩니다.</span></div>
-          <div><Mail size={19} /><span><strong>발신메일 연결</strong>네이버·Gmail·Microsoft·회사 메일을 한 번 연결해 사용합니다.</span></div>
-          <div><Receipt size={19} /><span><strong>팝빌 연결</strong>가입한 사업자가 직접 한 번 연결하면 이후 자동발행에 사용됩니다.</span></div>
+        <section className="landing-setup" id="setup">
+          <div className="landing-section-heading light">
+            <p>처음 한 번만 설정</p>
+            <h2>내 사업장 모습과 발행 환경을 그대로</h2>
+            <span>반복해서 입력하지 않도록 사업장 설정에 안전하게 보관합니다.</span>
+          </div>
+          <div className="landing-setup-grid">
+            <article><Stamp size={22} /><div><span>01</span><strong>로고·도장 등록</strong><p>사업장 이름과 로고는 앱에, 도장은 발행 문서에 자동 반영합니다.</p></div></article>
+            <article><Mail size={22} /><div><span>02</span><strong>발신메일 연결</strong><p>개인·회사 메일을 한 번 연결해 이후 고객 발송에 계속 사용합니다.</p></div></article>
+            <article><Receipt size={22} /><div><span>03</span><strong>팝빌 연결</strong><p>세금계산서를 발행할 사업자가 직접 연결하고 실제 발행 상태를 확인합니다.</p></div></article>
+            <article><Landmark size={22} /><div><span>04</span><strong>입금계좌 등록</strong><p>거래명세서, 세금계산서와 미수금 안내에만 선택적으로 표시합니다.</p></div></article>
+          </div>
         </section>
 
-        <div className="landing-final-cta">
-          <div>
-            <p>오늘의 견적부터 정산까지</p>
-            <strong>흩어진 업무를 블링빌에서 이어보세요.</strong>
-          </div>
-          <button onClick={onStart}>블링빌 시작하기 <ArrowRight size={17} /></button>
-        </div>
+        <section className="landing-security">
+          <div className="landing-security-icon"><LockKeyhole size={26} /></div>
+          <div><p>사용자별 데이터 보호</p><h2>내 사업장 데이터는 내 계정에서만</h2><span>고객, 견적, 수금과 매입 데이터는 로그인 계정별로 분리 저장되고 데이터베이스 보안 정책으로 접근을 제한합니다.</span></div>
+          <ShieldCheck size={48} aria-hidden="true" />
+        </section>
 
-        <p className="landing-foot">업무 데이터는 로그인 계정별로 분리 저장됩니다. 세금계산서 자동발행과 고객 메일 발송은 각 사용자의 연결 설정 후 활성화됩니다.</p>
-      </div>
-    </section>
+        <section className="landing-section landing-faq" id="faq">
+          <div className="landing-section-heading">
+            <p>자주 묻는 질문</p>
+            <h2>연결과 발행 전에 확인하세요</h2>
+          </div>
+          <div className="landing-faq-list">
+            {faqs.map((faq, index) => (
+              <details key={faq.question} open={index === 0}>
+                <summary>{faq.question}</summary>
+                <p>{faq.answer}</p>
+              </details>
+            ))}
+          </div>
+        </section>
+
+        <section className="landing-final-cta">
+          <div><p>견적을 만드는 오늘부터</p><h2>사업장 업무를 블링빌로 이어보세요</h2><span>문서와 고객, 입출금 흐름을 하나의 계정에서 관리합니다.</span></div>
+          <button onClick={onStart}>블링빌 시작하기 <ArrowRight size={18} /></button>
+        </section>
+      </main>
+
+      <footer className="landing-footer"><span className="brand-mark">BB</span><strong>블링빌</strong><p>견적·발행·정산 통합 업무 도구</p></footer>
+    </div>
   );
 }
