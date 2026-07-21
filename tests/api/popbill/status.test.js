@@ -5,7 +5,7 @@ const mocks = vi.hoisted(() => ({ config: vi.fn(), checkIsMember: vi.fn(), getUs
 vi.mock("popbill", () => ({
   default: { config: mocks.config, TaxinvoiceService: () => ({ checkIsMember: mocks.checkIsMember }) }
 }));
-vi.mock("./auth.js", () => ({
+vi.mock("../../../server/popbill/auth.js", () => ({
   authorizeRequest: async () => ({ user: { id: "user-1" }, admin: {} }),
   getUserConnection: mocks.getUserConnection
 }));
@@ -27,7 +27,7 @@ afterEach(() => envKeys.forEach((key) => originalEnv[key] === undefined ? delete
 
 describe("Popbill status handler", () => {
   it("reports missing partner credentials without calling Popbill", async () => {
-    const { default: handler } = await import("./status.js");
+    const { default: handler } = await import("../../../api/popbill/status.js");
     const response = makeResponse();
     await handler({ method: "GET" }, response);
     expect(response.statusCode).toBe(503);
@@ -38,7 +38,7 @@ describe("Popbill status handler", () => {
   it("checks the signed-in user's own business number", async () => {
     Object.assign(process.env, { POPBILL_LINK_ID: "link", POPBILL_SECRET_KEY: "secret" });
     mocks.checkIsMember.mockImplementation((_corpNum, success) => success({ code: 1 }));
-    const { default: handler } = await import("./status.js");
+    const { default: handler } = await import("../../../api/popbill/status.js");
     const response = makeResponse();
     await handler({ method: "GET" }, response);
     expect(mocks.checkIsMember).toHaveBeenCalledWith("1112233333", expect.any(Function), expect.any(Function));

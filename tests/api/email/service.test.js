@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createGoogleMime, decryptCredentials, encryptCredentials } from "./service.js";
+import { createGoogleMime, decryptCredentials, encryptCredentials } from "../../../server/email/service.js";
 
 const previousKey = process.env.EMAIL_TOKEN_ENCRYPTION_KEY;
 
@@ -45,4 +45,3 @@ describe("Gmail MIME document", () => {
     expect(mime).toContain("JVBERi0xLjQK");
   });
 });
-

@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("popbill", () => ({ default: { config: vi.fn(), TaxinvoiceService: () => ({ checkIsMember: mocks.checkIsMember, joinMember: mocks.joinMember }) } }));
-vi.mock("./auth.js", () => ({
+vi.mock("../../../server/popbill/auth.js", () => ({
   authorizeRequest: async () => ({ user: { id: "user-1" }, admin: {} }),
   getUserConnection: mocks.getUserConnection,
   getConnectionByCorpNum: mocks.getConnectionByCorpNum,
@@ -31,7 +31,7 @@ beforeEach(() => {
 describe("Popbill tenant connection", () => {
   it("blocks a business number already connected to another user", async () => {
     mocks.getConnectionByCorpNum.mockResolvedValue({ user_id: "user-2", corp_num: "1112233333" });
-    const { default: handler } = await import("./connect.js");
+    const { default: handler } = await import("../../../api/popbill/connect.js");
     const response = makeResponse();
     await handler({ method: "POST", body: { mode: "check", businessNumber: "111-22-33333" } }, response);
     expect(response.statusCode).toBe(409);
@@ -40,7 +40,7 @@ describe("Popbill tenant connection", () => {
 
   it("offers one-step signup when the business is not a Popbill member", async () => {
     mocks.checkIsMember.mockImplementation((_corpNum, success) => success({ code: 0 }));
-    const { default: handler } = await import("./connect.js");
+    const { default: handler } = await import("../../../api/popbill/connect.js");
     const response = makeResponse();
     await handler({ method: "POST", body: { mode: "check", businessNumber: "111-22-33333" } }, response);
     expect(response.body).toMatchObject({ ok: true, configured: false, needsSignup: true });

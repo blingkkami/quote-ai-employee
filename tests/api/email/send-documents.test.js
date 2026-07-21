@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ maybeSingle: vi.fn(), sendConnectedEmail: vi.fn() }));
-vi.mock("../popbill/auth.js", () => ({
+vi.mock("../../../server/popbill/auth.js", () => ({
   authorizeRequest: async () => ({
     user: { id: "user-1" },
     admin: { role: "service" },
     client: { from: () => ({ select: () => ({ eq: () => ({ maybeSingle: mocks.maybeSingle }) }) }) }
   })
 }));
-vi.mock("./service.js", () => ({
+vi.mock("../../../server/email/service.js", () => ({
   requireEmailAdmin: (auth) => auth.admin,
   sendConnectedEmail: mocks.sendConnectedEmail
 }));
@@ -31,7 +31,7 @@ beforeEach(() => {
 
 describe("document email handler", () => {
   it("only sends to the email saved on the user's customer", async () => {
-    const { default: handler } = await import("./send-documents.js");
+    const { default: handler } = await import("../../../api/email/send-documents.js");
     const response = makeResponse();
     await handler({ method: "POST", body: { ...body, recipient: "other@example.com" } }, response);
     expect(response.statusCode).toBe(403);
@@ -39,7 +39,7 @@ describe("document email handler", () => {
   });
 
   it("sends two PDFs through the user's connected mailbox", async () => {
-    const { default: handler } = await import("./send-documents.js");
+    const { default: handler } = await import("../../../api/email/send-documents.js");
     const response = makeResponse();
     await handler({ method: "POST", body }, response);
     expect(response.body).toMatchObject({ ok: true, emailId: "email-1", sender: "owner@example.com", recipient: "client@example.com" });
@@ -52,4 +52,3 @@ describe("document email handler", () => {
     }));
   });
 });
-

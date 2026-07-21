@@ -1,5 +1,5 @@
-import { authorizeRequest } from "../popbill/auth.js";
-import { getEmailConnection, publicConnection, requireEmailAdmin } from "./service.js";
+import { authorizeRequest } from "../../server/popbill/auth.js";
+import { getEmailConnection, publicConnection, requireEmailAdmin } from "../../server/email/service.js";
 
 export default async function handler(request, response) {
   response.setHeader?.("Cache-Control", "no-store");
@@ -16,4 +16,3 @@ export default async function handler(request, response) {
     response.status(503).json({ ok: false, connected: false, message: error instanceof Error ? error.message : String(error) });
   }
 }
-

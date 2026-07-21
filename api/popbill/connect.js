@@ -4,8 +4,8 @@ import {
   getUserConnection,
   removeUserConnection,
   saveUserConnection
-} from "./auth.js";
-import { callPopbill, getPopbillService } from "./service.js";
+} from "../../server/popbill/auth.js";
+import { callPopbill, getPopbillService } from "../../server/popbill/service.js";
 
 const digits = (value) => String(value ?? "").replace(/\D/g, "");
 const text = (value, maxLength = 200) => String(value ?? "").trim().slice(0, maxLength);

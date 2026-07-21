@@ -1,10 +1,10 @@
-import { authorizeRequest } from "../popbill/auth.js";
+import { authorizeRequest } from "../../server/popbill/auth.js";
 import {
   createOAuthState,
   oauthAuthorizationUrl,
   revokeEmailConnection,
   requireEmailAdmin
-} from "./service.js";
+} from "../../server/email/service.js";
 
 export default async function handler(request, response) {
   response.setHeader?.("Cache-Control", "no-store");

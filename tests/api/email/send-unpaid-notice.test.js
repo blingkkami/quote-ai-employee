@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ maybeSingle: vi.fn(), sendConnectedEmail: vi.fn() }));
-vi.mock("../popbill/auth.js", () => ({
+vi.mock("../../../server/popbill/auth.js", () => ({
   authorizeRequest: async () => ({
     user: { id: "user-1" },
     admin: { role: "service" },
     client: { from: () => ({ select: () => ({ eq: () => ({ maybeSingle: mocks.maybeSingle }) }) }) }
   })
 }));
-vi.mock("./service.js", () => ({
+vi.mock("../../../server/email/service.js", () => ({
   requireEmailAdmin: (auth) => auth.admin,
   sendConnectedEmail: mocks.sendConnectedEmail
 }));
@@ -40,7 +40,7 @@ beforeEach(() => {
 
 describe("unpaid notice email handler", () => {
   it("recalculates the balance from saved sales and includes the saved account", async () => {
-    const { default: handler } = await import("./send-unpaid-notice.js");
+    const { default: handler } = await import("../../../api/email/send-unpaid-notice.js");
     const response = makeResponse();
     await handler({ method: "POST", body: { customerId: "customer-1", totalAmount: 1 } }, response);
     expect(response.body).toMatchObject({ ok: true, totalAmount: 320000, recipient: "client@example.com" });
@@ -56,7 +56,7 @@ describe("unpaid notice email handler", () => {
       ...appData,
       workspaceProfile: { ...appData.workspaceProfile, paymentAccount: { ...appData.workspaceProfile.paymentAccount, showOnUnpaidNotices: false } }
     } }, error: null });
-    const { default: handler } = await import("./send-unpaid-notice.js");
+    const { default: handler } = await import("../../../api/email/send-unpaid-notice.js");
     const response = makeResponse();
     await handler({ method: "POST", body: { customerId: "customer-1" } }, response);
     expect(response.statusCode).toBe(409);

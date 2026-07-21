@@ -1,5 +1,5 @@
 import popbill from "popbill";
-import { authorizeRequest, getUserConnection } from "./auth.js";
+import { authorizeRequest, getUserConnection } from "../../server/popbill/auth.js";
 
 const LINK_ID = process.env.POPBILL_LINK_ID;
 const SECRET_KEY = process.env.POPBILL_SECRET_KEY;

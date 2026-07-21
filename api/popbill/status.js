@@ -1,5 +1,5 @@
-import { authorizeRequest, getUserConnection } from "./auth.js";
-import { callPopbill, getPopbillService } from "./service.js";
+import { authorizeRequest, getUserConnection } from "../../server/popbill/auth.js";
+import { callPopbill, getPopbillService } from "../../server/popbill/service.js";
 
 export default async function handler(request, response) {
   response.setHeader?.("Cache-Control", "no-store");

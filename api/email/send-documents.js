@@ -1,5 +1,5 @@
-import { authorizeRequest } from "../popbill/auth.js";
-import { requireEmailAdmin, sendConnectedEmail } from "./service.js";
+import { authorizeRequest } from "../../server/popbill/auth.js";
+import { requireEmailAdmin, sendConnectedEmail } from "../../server/email/service.js";
 
 const escapeHtml = (value) => String(value ?? "")
   .replace(/&/g, "&amp;")
@@ -93,4 +93,3 @@ export default async function handler(request, response) {
     response.status(500).json({ ok: false, message: error instanceof Error ? error.message : String(error) });
   }
 }
-

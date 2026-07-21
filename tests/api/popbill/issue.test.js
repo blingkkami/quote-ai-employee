@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ config: vi.fn(), registIssue: vi.fn(), getUserConnection: vi.fn() }));
 vi.mock("popbill", () => ({ default: { config: mocks.config, TaxinvoiceService: () => ({ registIssue: mocks.registIssue }) } }));
-vi.mock("./auth.js", () => ({
+vi.mock("../../../server/popbill/auth.js", () => ({
   authorizeRequest: async () => ({ user: { id: "user-1" }, admin: {} }),
   getUserConnection: mocks.getUserConnection
 }));
@@ -22,7 +22,7 @@ afterEach(() => envKeys.forEach((key) => originalEnv[key] === undefined ? delete
 
 describe("Popbill issue handler", () => {
   it("never reports issued when partner credentials are missing", async () => {
-    const { default: handler } = await import("./issue.js");
+    const { default: handler } = await import("../../../api/popbill/issue.js");
     const response = makeResponse();
     await handler({ method: "POST", body: payload }, response);
     expect(response.statusCode).toBe(503);
@@ -33,7 +33,7 @@ describe("Popbill issue handler", () => {
   it("issues with the signed-in user's supplier connection", async () => {
     Object.assign(process.env, { POPBILL_LINK_ID: "link", POPBILL_SECRET_KEY: "secret" });
     mocks.registIssue.mockImplementation((...args) => args[8]({ ntsconfirmNum: "nts-1" }));
-    const { default: handler } = await import("./issue.js");
+    const { default: handler } = await import("../../../api/popbill/issue.js");
     const response = makeResponse();
     await handler({ method: "POST", body: payload }, response);
     const invoice = mocks.registIssue.mock.calls[0][1];
