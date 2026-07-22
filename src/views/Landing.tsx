@@ -8,12 +8,10 @@ import {
   FileText,
   HandCoins,
   Landmark,
-  LockKeyhole,
   Mail,
   Receipt,
   Search,
   Send,
-  ShieldCheck,
   Stamp,
   Users
 } from "lucide-react";
@@ -71,10 +69,6 @@ const faqs = [
   {
     question: "견적서에도 입금 계좌가 표시되나요?",
     answer: "아니요. 입금 계좌는 거래명세서와 세금계산서, 미수금 안내에만 표시하며 견적서에는 노출하지 않습니다."
-  },
-  {
-    question: "다른 사용자가 제 고객 정보를 볼 수 있나요?",
-    answer: "로그인 계정별로 업무 데이터를 분리 저장하며, 데이터베이스 보안 정책에서도 본인 데이터만 접근하도록 제한합니다."
   }
 ];
 
@@ -110,7 +104,7 @@ export function Landing({ onStart }: { onStart: () => void }) {
             </div>
             <div className="landing-hero-proof" aria-label="블링빌 핵심 특징">
               <span><Check size={15} /> 자동 저장</span>
-              <span><Check size={15} /> 사용자별 분리</span>
+              <span><Check size={15} /> 어디서나 이어쓰기</span>
               <span><Check size={15} /> 로고·도장 적용</span>
               <span><Check size={15} /> 내 메일 발송</span>
             </div>
@@ -203,12 +197,6 @@ export function Landing({ onStart }: { onStart: () => void }) {
             <article><Receipt size={22} /><div><span>03</span><strong>팝빌 연결</strong><p>세금계산서를 발행할 사업자가 직접 연결하고 실제 발행 상태를 확인합니다.</p></div></article>
             <article><Landmark size={22} /><div><span>04</span><strong>입금계좌 등록</strong><p>거래명세서, 세금계산서와 미수금 안내에만 선택적으로 표시합니다.</p></div></article>
           </div>
-        </section>
-
-        <section className="landing-security">
-          <div className="landing-security-icon"><LockKeyhole size={26} /></div>
-          <div><p>사용자별 데이터 보호</p><h2>내 사업장 데이터는 내 계정에서만</h2><span>고객, 견적, 수금과 매입 데이터는 로그인 계정별로 분리 저장되고 데이터베이스 보안 정책으로 접근을 제한합니다.</span></div>
-          <ShieldCheck size={48} aria-hidden="true" />
         </section>
 
         <section className="landing-section landing-faq" id="faq">
