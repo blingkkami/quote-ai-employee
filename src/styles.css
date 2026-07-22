@@ -1179,6 +1179,52 @@ summary:focus-visible {
   color: #236749;
 }
 
+.auth-verification {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 18px;
+  border: 1px solid #c9d8eb;
+  border-radius: 8px;
+  background: #f6f9fd;
+  text-align: center;
+}
+
+.auth-verification-icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 50%;
+  background: #e4f4ec;
+  color: #187253;
+}
+
+.auth-verification-email {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  color: #315f9d;
+  font-weight: 700;
+}
+
+.auth-verification ol {
+  width: 100%;
+  margin: 7px 0 0;
+  padding: 12px 12px 12px 32px;
+  border-top: 1px solid #dce5f0;
+  border-bottom: 1px solid #dce5f0;
+  color: #34445a;
+  text-align: left;
+}
+
+.auth-verification li + li {
+  margin-top: 5px;
+}
+
+.auth-verification small {
+  color: #65758a;
+}
+
 .recovery-form {
   width: min(440px, 100%);
   border: 1px solid #dce3ec;

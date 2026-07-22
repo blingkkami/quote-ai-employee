@@ -1,8 +1,8 @@
 import { useState, type FormEvent } from "react";
-import { ArrowLeft, KeyRound, LoaderCircle, LockKeyhole, Mail } from "lucide-react";
+import { ArrowLeft, CheckCircle2, KeyRound, LoaderCircle, LockKeyhole, Mail, RefreshCw } from "lucide-react";
 import { requireSupabase } from "../lib/supabase";
 
-type AuthMode = "signin" | "signup" | "forgot";
+type AuthMode = "signin" | "signup" | "forgot" | "verify";
 
 function getAuthErrorMessage(message: string) {
   const normalized = message.toLowerCase();
@@ -19,6 +19,7 @@ export function AuthScreen({ onBack }: { onBack: () => void }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
+  const [pendingEmail, setPendingEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -62,12 +63,17 @@ export function AuthScreen({ onBack }: { onBack: () => void }) {
         const { data, error: signUpError } = await client.auth.signUp({
           email: normalizedEmail,
           password,
-          options: { emailRedirectTo: window.location.origin }
+          options: {
+            emailRedirectTo: window.location.origin,
+            data: { locale: "ko" }
+          }
         });
         if (signUpError) throw signUpError;
         if (!data.session) {
-          changeMode("signin");
-          setMessage("가입 확인 메일을 보냈습니다. 이메일 인증 후 로그인해 주세요.");
+          setPendingEmail(normalizedEmail);
+          setMode("verify");
+          setPassword("");
+          setPasswordConfirm("");
         }
       } else {
         const { error: resetError } = await client.auth.resetPasswordForEmail(normalizedEmail, {
@@ -84,7 +90,29 @@ export function AuthScreen({ onBack }: { onBack: () => void }) {
     }
   };
 
-  const title = mode === "signin" ? "로그인" : mode === "signup" ? "회원가입" : "비밀번호 찾기";
+  const resendConfirmation = async () => {
+    if (!pendingEmail) return;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const client = requireSupabase();
+      const { error: resendError } = await client.auth.resend({
+        type: "signup",
+        email: pendingEmail,
+        options: { emailRedirectTo: window.location.origin }
+      });
+      if (resendError) throw resendError;
+      setMessage("인증 메일을 다시 보냈습니다. 받은편지함과 스팸함을 확인해 주세요.");
+    } catch (resendError) {
+      const rawMessage = resendError instanceof Error ? resendError.message : String(resendError);
+      setError(getAuthErrorMessage(rawMessage));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const title = mode === "signin" ? "로그인" : mode === "signup" ? "회원가입" : mode === "forgot" ? "비밀번호 찾기" : "이메일 인증";
 
   return (
     <section className="auth-page">
@@ -109,22 +137,24 @@ export function AuthScreen({ onBack }: { onBack: () => void }) {
             </div>
           </div>
 
-          {mode !== "forgot" && (
+          {mode !== "forgot" && mode !== "verify" && (
             <div className="auth-tabs" role="tablist" aria-label="로그인 방식">
               <button type="button" role="tab" aria-selected={mode === "signin"} className={mode === "signin" ? "active" : ""} onClick={() => changeMode("signin")}>로그인</button>
               <button type="button" role="tab" aria-selected={mode === "signup"} className={mode === "signup" ? "active" : ""} onClick={() => changeMode("signup")}>회원가입</button>
             </div>
           )}
 
-          <label>
-            이메일
-            <span className="auth-input">
-              <Mail size={17} aria-hidden="true" />
-              <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" placeholder="name@example.com" required />
-            </span>
-          </label>
+          {mode !== "verify" && (
+            <label>
+              이메일
+              <span className="auth-input">
+                <Mail size={17} aria-hidden="true" />
+                <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" placeholder="name@example.com" required />
+              </span>
+            </label>
+          )}
 
-          {mode !== "forgot" && (
+          {mode !== "forgot" && mode !== "verify" && (
             <label>
               비밀번호
               <span className="auth-input">
@@ -144,13 +174,40 @@ export function AuthScreen({ onBack }: { onBack: () => void }) {
             </label>
           )}
 
+          {mode === "verify" && (
+            <div className="auth-verification" role="status">
+              <span className="auth-verification-icon"><CheckCircle2 size={23} /></span>
+              <strong>인증 메일을 보냈습니다</strong>
+              <span className="auth-verification-email">{pendingEmail}</span>
+              <ol>
+                <li>받은편지함에서 블링빌 인증 메일을 여세요.</li>
+                <li><b>이메일 인증하기</b> 버튼을 누르세요.</li>
+                <li>블링빌로 돌아오면 가입이 완료됩니다.</li>
+              </ol>
+              <small>메일이 보이지 않으면 스팸함도 확인해 주세요.</small>
+            </div>
+          )}
+
           {error && <p className="auth-feedback error" role="alert">{error}</p>}
           {message && <p className="auth-feedback success" role="status">{message}</p>}
 
-          <button className="auth-submit" type="submit" disabled={busy}>
-            {busy && <LoaderCircle className="spin" size={17} />}
-            {busy ? "처리 중" : mode === "signin" ? "로그인" : mode === "signup" ? "회원가입" : "재설정 메일 보내기"}
-          </button>
+          {mode !== "verify" && (
+            <button className="auth-submit" type="submit" disabled={busy}>
+              {busy && <LoaderCircle className="spin" size={17} />}
+              {busy ? "처리 중" : mode === "signin" ? "로그인" : mode === "signup" ? "회원가입" : "재설정 메일 보내기"}
+            </button>
+          )}
+
+          {mode === "verify" && (
+            <>
+              <button className="auth-submit" type="button" disabled={busy} onClick={resendConfirmation}>
+                {busy ? <LoaderCircle className="spin" size={17} /> : <RefreshCw size={17} />}
+                {busy ? "보내는 중" : "인증 메일 다시 보내기"}
+              </button>
+              <button className="link auth-secondary" type="button" onClick={() => changeMode("signup")}>이메일 주소 수정</button>
+              <button className="link auth-secondary" type="button" onClick={() => changeMode("signin")}>이미 인증했다면 로그인</button>
+            </>
+          )}
 
           {mode === "signin" && <button className="link auth-secondary" type="button" onClick={() => changeMode("forgot")}>비밀번호를 잊으셨나요?</button>}
           {mode === "forgot" && <button className="link auth-secondary" type="button" onClick={() => changeMode("signin")}><ArrowLeft size={15} /> 로그인으로 돌아가기</button>}
