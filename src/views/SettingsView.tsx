@@ -125,8 +125,11 @@ export function SettingsView({ integration, onChange, data, onRestore, onDocumen
     const digits = draft.businessNumber.replace(/\D/g, "");
     const statusPromise = digits.length === 10 ? checkBusinessStatus(draft.businessNumber) : null;
     const next = await runConnectionAction(() => checkPopbill(draft.businessNumber));
-    if (next.needsSignup) setShowSignup(true);
-    if (next.needsExistingConnection) setShowExistingConnection(true);
+    setShowSignup(Boolean(next.needsSignup));
+    setShowExistingConnection(Boolean(next.needsExistingConnection));
+    window.requestAnimationFrame(() => {
+      document.getElementById("popbill-connection-result")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
     if (statusPromise) {
       try {
         const status = await statusPromise;
@@ -246,6 +249,8 @@ export function SettingsView({ integration, onChange, data, onRestore, onDocumen
             </div>
           )}
 
+          {result && <div id="popbill-connection-result" className={result.ok ? "notice" : "alert danger-alert"} role="status">{result.message}{result.environment ? ` 현재 ${result.environment === "production" ? "운영" : "테스트"} 환경입니다.` : ""}</div>}
+
           {statusResult && !draft.isConnected && (
             <div
               className={statusResult.active === true ? "notice" : statusResult.active === false ? "alert danger-alert" : "field-help"}
@@ -298,8 +303,6 @@ export function SettingsView({ integration, onChange, data, onRestore, onDocumen
               </div>
             </div>
           )}
-
-          {result && <div className={result.ok ? "notice" : "alert danger-alert"} role="status">{result.message}{result.environment ? ` 현재 ${result.environment === "production" ? "운영" : "테스트"} 환경입니다.` : ""}</div>}
 
           <div className="settings-section">
             <SectionTitle title="발행 담당자 기본정보" hint="연결 후에도 담당자 정보와 메모를 관리할 수 있습니다." />

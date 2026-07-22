@@ -54,7 +54,7 @@ describe("Popbill tenant connection", () => {
     const { default: handler } = await import("../../../api/popbill/connect.js");
     const response = makeResponse();
     await handler({ method: "POST", body: { mode: "check", businessNumber: "111-22-33333" } }, response);
-    expect(response.body).toMatchObject({ ok: true, configured: false, needsSignup: true });
+    expect(response.body).toMatchObject({ ok: true, configured: false, needsSignup: true, environment: "test" });
   });
 
   it("offers secure reconnection when the business is already a Popbill member", async () => {
@@ -62,7 +62,7 @@ describe("Popbill tenant connection", () => {
     const { default: handler } = await import("../../../api/popbill/connect.js");
     const response = makeResponse();
     await handler({ method: "POST", body: { mode: "check", businessNumber: "111-22-33333" } }, response);
-    expect(response.body).toMatchObject({ ok: true, configured: false, existingMember: true, needsExistingConnection: true });
+    expect(response.body).toMatchObject({ ok: true, configured: false, existingMember: true, needsExistingConnection: true, environment: "test" });
   });
 
   it("reconnects an existing member after matching the Popbill contact email", async () => {

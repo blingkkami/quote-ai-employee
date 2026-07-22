@@ -265,11 +265,18 @@ export default async function handler(request, response) {
           configured: false,
           existingMember: true,
           needsExistingConnection: true,
+          environment: popbill.environment,
           message: "이미 팝빌 회원인 사업자입니다. 팝빌 아이디로 본인 확인 후 바로 연결할 수 있습니다."
         });
         return;
       }
-      response.status(200).json({ ok: true, configured: false, needsSignup: true, message: "기본 정보만 입력하면 팝빌 가입과 자동발행 연결이 한 번에 완료됩니다." });
+      response.status(200).json({
+        ok: true,
+        configured: false,
+        needsSignup: true,
+        environment: popbill.environment,
+        message: "이 환경에는 등록되지 않은 사업자입니다. 기본 정보를 입력하면 팝빌 가입과 자동발행 연결이 완료됩니다."
+      });
       return;
     }
 
