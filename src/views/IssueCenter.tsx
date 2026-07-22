@@ -19,6 +19,12 @@ const invoiceStatusLabels = {
 
 type InvoiceStatus = keyof typeof invoiceStatusLabels;
 
+const cashReceiptLabels = {
+  pending: "발행 대기",
+  issued: "발행 완료",
+  failed: "발행 실패"
+} as const;
+
 export function IssueCenter({
   quote,
   quotes,
@@ -114,6 +120,7 @@ export function IssueCenter({
   const customer = customers.find((item) => item.id === quote.customerId);
   const invoiceCustomer = quote.customerSnapshot ?? customer;
   const invoiceStatus = quote.invoiceStatus ?? "pending";
+  const cashReceiptStatus = quote.cashReceiptStatus ?? "pending";
   const issuanceComplete = invoiceStatus === "issued" || invoiceStatus === "sent";
 
   return (
@@ -141,6 +148,12 @@ export function IssueCenter({
           <dt>발행 상태</dt><dd><Status tone={invoiceStatus}>{invoiceStatusLabels[invoiceStatus]}</Status></dd>
           <dt>팝빌 관리번호</dt><dd>{quote.popbillInvoiceId ?? "-"}</dd>
           <dt>국세청 승인번호</dt><dd>{quote.popbillNtsConfirmNum ?? "-"}</dd>
+          {quote.invoiceType.issueCashReceipt && (
+            <>
+              <dt>현금영수증</dt>
+              <dd><Status tone={cashReceiptStatus}>{cashReceiptLabels[cashReceiptStatus]}</Status>{quote.popbillCashbillId ? ` · ${quote.popbillCashbillId}` : ""}</dd>
+            </>
+          )}
           <dt>문서 이메일</dt><dd><Status tone={quote.documentEmailStatus ?? "pending"}>{quote.documentEmailStatus === "sent" ? "발송 완료" : quote.documentEmailStatus === "failed" ? "발송 실패" : quote.documentEmailStatus === "sending" ? "발송 중" : "발송 전"}</Status>{quote.documentEmailRecipient ? ` · ${quote.documentEmailRecipient}` : ""}</dd>
         </dl>
 
@@ -193,6 +206,7 @@ export function IssueCenter({
         )}
 
         {quote.invoiceNote && <div className={invoiceStatus === "failed" ? "alert danger-alert" : "notice"}>{quote.invoiceNote}</div>}
+        {quote.invoiceType.issueCashReceipt && quote.cashReceiptNote && <div className={cashReceiptStatus === "failed" ? "alert danger-alert" : "notice"}>{quote.cashReceiptNote}</div>}
         {quote.documentEmailNote && <div className={quote.documentEmailStatus === "failed" ? "alert danger-alert" : "notice"}>{quote.documentEmailNote}</div>}
         {issuanceComplete && <div className="notice">발행 완료된 건은 중복 발행을 막기 위해 옵션이 잠겨 있습니다.</div>}
         {quote.invoiceIssuanceMode === "auto" && quote.invoiceType.issueInvoice && invoiceStatus === "pending" && (

@@ -46,6 +46,7 @@ export function QuotePreview({ quote, logo, workspaceProfile }: { quote: QuoteRe
 
   const subtotal = quoteSubtotal(previewQuote);
   const total = quoteTotal(previewQuote);
+  const taxExempt = previewQuote.customerSnapshot?.taxExempt === true;
 
   const noteLines = form.notes.split("\n").map((line) => line.trim()).filter(Boolean);
 
@@ -116,13 +117,19 @@ export function QuotePreview({ quote, logo, workspaceProfile }: { quote: QuoteRe
                 <td className="qp-final-desc">{form.finalDescription}</td>
                 <td className="qp-final-amount">
                   <span className="qp-final-sum">{money(subtotal)}원</span>
-                  <span className="qp-final-vat">부가세 별도</span>
+                  <span className="qp-final-vat">{taxExempt ? "면세" : "부가세 별도"}</span>
                 </td>
               </tr>
               <tr className="qp-total-row">
                 <td className="qp-total-cell" colSpan={2}>
-                  <div>총 견적 (부가세 제외) : {money(subtotal)}원</div>
-                  <div>총 견적 (부가세 포함) : {money(total)}원</div>
+                  {taxExempt ? (
+                    <div>총 견적 (면세) : {money(subtotal)}원</div>
+                  ) : (
+                    <>
+                      <div>총 견적 (부가세 제외) : {money(subtotal)}원</div>
+                      <div>총 견적 (부가세 포함) : {money(total)}원</div>
+                    </>
+                  )}
                 </td>
                 <td className="qp-total-empty" />
               </tr>

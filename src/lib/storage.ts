@@ -26,7 +26,8 @@ export function mergeAppData(parsed: Partial<AppData>): AppData {
           address: customer.address,
           contactPerson: customer.contactPerson,
           contact: customer.contact,
-          email: customer.email
+          email: customer.email,
+          taxExempt: customer.taxExempt
         } : undefined)
       };
     }).filter((quote) => quote.status !== "draft" || Boolean(quote.customerId) || quoteHasContent(quote));

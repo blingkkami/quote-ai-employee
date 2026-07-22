@@ -5,10 +5,48 @@ import {
   removeUserConnection,
   saveUserConnection
 } from "../../server/popbill/auth.js";
-import { callPopbill, getPopbillService } from "../../server/popbill/service.js";
+import { callPopbill, getBizInfoCheckService, getClosedownService, getPopbillService } from "../../server/popbill/service.js";
 
 const digits = (value) => String(value ?? "").replace(/\D/g, "");
 const text = (value, maxLength = 200) => String(value ?? "").trim().slice(0, maxLength);
+
+// 조회(상태조회·기업정보조회)에 쓸 팝빌 회원 사업자번호. 연결된 사용자는 본인 계정, 미연결(가입 전)이면 플랫폼 계정을 사용한다.
+const resolveMemberCorpNum = async (admin, userId) => {
+  const connection = await getUserConnection(admin, userId).catch(() => null);
+  return digits(connection?.corp_num) || digits(process.env.POPBILL_CORP_NUM);
+};
+
+// 국세청 납세자 상태 코드(팝빌 휴폐업조회 state): 0=미등록, 1=사업중, 2=폐업, 3=휴업.
+// 애매하면 정상으로 단정하지 않고 확인 필요로 남긴다.
+const interpretState = (raw) => {
+  const state = Number(raw?.state);
+  if (state === 1) return { active: true, message: "정상 영업 중인 사업자입니다." };
+  if (state === 2) return { active: false, message: "국세청에 폐업으로 등록된 사업자번호입니다." };
+  if (state === 3) return { active: false, message: "국세청에 휴업으로 등록된 사업자번호입니다." };
+  if (state === 0) return { active: null, message: "국세청에 등록되지 않은 사업자번호입니다. 번호를 다시 확인해 주세요." };
+  const message = String(raw?.message || raw?.stateString || "").trim();
+  return { active: null, message: message || "사업자 상태를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요." };
+};
+
+// 팝빌 기업정보조회 응답의 필드 표기가 버전마다 다를 수 있어 후보 키를 방어적으로 탐색한다.
+const pick = (raw, keys) => {
+  if (!raw || typeof raw !== "object") return "";
+  for (const key of keys) {
+    const value = raw[key];
+    if (value != null && String(value).trim()) return String(value).trim();
+  }
+  return "";
+};
+
+// 과세유형을 확신할 수 없으면 unknown으로 남긴다(사용자 선택을 덮어쓰지 않기 위함).
+const detectTaxType = (raw) => {
+  if (!raw || typeof raw !== "object") return "unknown";
+  const explicit = pick(raw, ["taxType", "taxationType", "corpType", "vatType"]);
+  const haystack = `${explicit} ${Object.values(raw).map((value) => (typeof value === "string" ? value : "")).join(" ")}`;
+  if (haystack.includes("면세")) return "면세";
+  if (haystack.includes("과세") || haystack.includes("일반과세") || haystack.includes("간이과세")) return "과세";
+  return "unknown";
+};
 
 const connectionPayload = (profile) => ({
   corp_num: digits(profile.businessNumber),
@@ -66,6 +104,65 @@ export default async function handler(request, response) {
     if (typeof body === "string") {
       try { body = JSON.parse(body); } catch { body = {}; }
     }
+
+    // 사업자상태조회·기업정보조회는 Vercel 무료 플랜 함수 수 제한 때문에 별도 라우트 대신 이 파일의 모드로 합쳤다.
+    if (body.mode === "status" || body.mode === "lookup") {
+      const checkCorpNum = digits(body.businessNumber);
+      if (checkCorpNum.length !== 10) {
+        response.status(400).json({ ok: false, checked: false, found: false, message: "사업자등록번호 10자리를 확인해 주세요." });
+        return;
+      }
+      const memberCorpNum = await resolveMemberCorpNum(auth.admin, auth.user.id);
+      if (!memberCorpNum) {
+        response.status(503).json({ ok: false, checked: false, found: false, configured: false, message: "조회에 사용할 팝빌 회원 정보가 아직 준비되지 않았습니다." });
+        return;
+      }
+
+      if (body.mode === "status") {
+        const popbill = getClosedownService();
+        if (!popbill.service) {
+          response.status(503).json({ ok: false, checked: false, configured: false, missing: popbill.missing, message: "팝빌 사업자 상태조회 서버가 아직 준비되지 않았습니다." });
+          return;
+        }
+        const lookup = await callPopbill(popbill.service, "checkCorpNum", [memberCorpNum, checkCorpNum, ""]);
+        if (!lookup.ok) {
+          response.status(200).json({ ok: false, checked: false, active: null, message: String(lookup.error?.message || lookup.error?.code || "사업자 상태를 확인하지 못했습니다.") });
+          return;
+        }
+        const parsed = interpretState(lookup.result);
+        response.status(200).json({ ok: true, checked: true, active: parsed.active, message: parsed.message, raw: lookup.result });
+        return;
+      }
+
+      const popbill = getBizInfoCheckService();
+      if (!popbill.service) {
+        response.status(503).json({ ok: false, found: false, configured: false, missing: popbill.missing, message: "팝빌 기업정보조회 서버가 아직 준비되지 않았습니다." });
+        return;
+      }
+      const lookup = await callPopbill(popbill.service, "checkBizInfo", [memberCorpNum, checkCorpNum, ""]);
+      if (!lookup.ok) {
+        response.status(200).json({ ok: false, found: false, message: String(lookup.error?.message || lookup.error?.code || "기업정보를 조회하지 못했습니다.") });
+        return;
+      }
+      const raw = lookup.result || {};
+      const corpName = pick(raw, ["corpName", "companyName", "corpNm"]);
+      const ceoName = pick(raw, ["ceoName", "ceoname", "repName", "representativeName"]);
+      const address = pick(raw, ["addr", "address", "corpAddr"]);
+      const taxType = detectTaxType(raw);
+      const found = Boolean(corpName || ceoName || address);
+      response.status(200).json({
+        ok: true,
+        found,
+        corpName: corpName || undefined,
+        ceoName: ceoName || undefined,
+        address: address || undefined,
+        taxType,
+        message: found ? "기업정보를 불러왔습니다." : "일치하는 기업정보를 찾지 못했습니다.",
+        raw
+      });
+      return;
+    }
+
     const profile = body.profile || body;
     const corpNum = digits(profile.businessNumber);
     if (corpNum.length !== 10) {

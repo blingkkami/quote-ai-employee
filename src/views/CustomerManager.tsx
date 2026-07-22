@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Building2, Check, Landmark, LoaderCircle, Mail, Pencil, Phone, Plus, Search, Trash2, UserRound, X } from "lucide-react";
 import type { AppData, Customer, InvoicePreference } from "../types";
 import { money } from "../lib/format";
@@ -11,6 +11,7 @@ import { AddressInput } from "../components/AddressInput";
 import { TextArea } from "../components/TextArea";
 import { Status } from "../components/Status";
 import { formatBusinessNumber, formatPhoneNumber } from "../lib/input-format";
+import { lookupCompany } from "../lib/popbill-access";
 import { hasPaymentAccount, paymentAccountText } from "../lib/payment-account";
 import type { UnpaidNoticeResult } from "../lib/unpaid-notice";
 
@@ -22,6 +23,8 @@ export function CustomerManager({ data, setData, onSendUnpaidNotice }: { data: A
   const [returnCustomerId, setReturnCustomerId] = useState<string | null>(null);
   const [sendingUnpaidNotice, setSendingUnpaidNotice] = useState(false);
   const [unpaidNoticeMessage, setUnpaidNoticeMessage] = useState<{ tone: "success" | "danger"; text: string } | null>(null);
+  const [customerLookupHint, setCustomerLookupHint] = useState("");
+  const lookedUpBizRef = useRef<Record<string, string>>({});
   const activeCustomer = activeCustomerId
     ? data.customers.find((customer) => customer.id === activeCustomerId)
     : undefined;
@@ -125,6 +128,52 @@ export function CustomerManager({ data, setData, onSendUnpaidNotice }: { data: A
       )
     }));
   };
+  // 기업정보조회 자동완성: 편집 중 사업자번호가 10자리가 되면 비어 있는 항목만 채운다(수동 입력 우선, 실패는 무시).
+  const activeBusinessNumber = activeCustomer?.businessNumber;
+  useEffect(() => {
+    if (!editMode || !activeCustomer) {
+      setCustomerLookupHint("");
+      return;
+    }
+    const id = activeCustomer.id;
+    const biz = (activeBusinessNumber ?? "").replace(/\D/g, "");
+    if (biz.length !== 10) {
+      setCustomerLookupHint("");
+      return;
+    }
+    if (lookedUpBizRef.current[id] === biz) return;
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      lookedUpBizRef.current[id] = biz;
+      try {
+        const info = await lookupCompany(biz);
+        if (cancelled || !info.ok || !info.found) return;
+        let applied = false;
+        setData((prev) => ({
+          ...prev,
+          customers: prev.customers.map((customer) => {
+            if (customer.id !== id) return customer;
+            const patch: Partial<Customer> = {};
+            if (info.corpName && !customer.name?.trim()) patch.name = info.corpName;
+            if (info.ceoName && !customer.representativeName?.trim()) patch.representativeName = info.ceoName;
+            if (info.address && !customer.address?.trim()) patch.address = info.address;
+            if (info.taxType === "면세" && customer.taxExempt == null) patch.taxExempt = true;
+            if (!Object.keys(patch).length) return customer;
+            applied = true;
+            return { ...customer, ...patch, updatedAt: new Date().toISOString() };
+          })
+        }));
+        if (applied && !cancelled) setCustomerLookupHint("사업자번호로 정보를 자동으로 채웠어요. 필요하면 수정하세요.");
+      } catch {
+        // 조회 실패 시 수동 입력을 그대로 유지한다.
+      }
+    }, 500);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [editMode, activeCustomer, activeBusinessNumber, setData]);
+
   const deleteCustomer = (customer: Customer) => {
     const hasHistory = data.quotes.some((quote) => quote.customerId === customer.id) || data.sales.some((sale) => sale.customerId === customer.id);
     if (hasHistory) {
@@ -255,6 +304,7 @@ export function CustomerManager({ data, setData, onSendUnpaidNotice }: { data: A
                     <Input label="대표자" value={activeCustomer.representativeName ?? ""} onChange={(value) => patchCustomer(activeCustomer.id, { representativeName: value })} />
                     <Input label="담당자" value={activeCustomer.contactPerson} onChange={(value) => patchCustomer(activeCustomer.id, { contactPerson: value })} />
                   </div>
+                  {customerLookupHint && <p className="field-help">{customerLookupHint}</p>}
                 </div>
                 <div className="customer-edit-section">
                   <h3>연락처</h3>
@@ -281,6 +331,10 @@ export function CustomerManager({ data, setData, onSendUnpaidNotice }: { data: A
                       </select>
                     </label>
                   </div>
+                  <label className="check">
+                    <input type="checkbox" checked={activeCustomer.taxExempt ?? false} onChange={(event) => patchCustomer(activeCustomer.id, { taxExempt: event.target.checked })} />
+                    면세사업자 (부가세 면제)
+                  </label>
                   <TextArea label="CRM 메모" value={activeCustomer.memo ?? ""} onChange={(value) => patchCustomer(activeCustomer.id, { memo: value })} />
                 </div>
               </div>
@@ -294,6 +348,7 @@ export function CustomerManager({ data, setData, onSendUnpaidNotice }: { data: A
                 <div className="customer-info-item"><span>결제 주기</span><strong>{activeCustomer.paymentCycle === "monthly_batch" ? "월말 정산" : "건별 정산"}</strong></div>
                 <div className="customer-info-item wide"><span>주소</span><strong>{activeCustomer.address || "-"}</strong></div>
                 <div className="customer-info-item"><span>기본 발행 방식</span><strong>{invoiceLabels[activeCustomer.invoicePreference]}</strong></div>
+                <div className="customer-info-item"><span>과세 유형</span><strong>{activeCustomer.taxExempt ? "면세사업자" : "과세사업자"}</strong></div>
                 <div className="customer-info-item"><span>CRM 메모</span><strong>{activeCustomer.memo || "-"}</strong></div>
               </div>
             )}

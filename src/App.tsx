@@ -5,6 +5,7 @@ import { emptyQuote } from "./data/quote-defaults";
 import { quoteHasContent, quoteSubtotal, quoteTotal, quoteVat } from "./lib/quote-calc";
 import { uid } from "./lib/id";
 import { getTaxInvoiceStatus, issueTaxInvoice } from "./lib/tax-invoice";
+import { issueCashbill } from "./lib/cashbill";
 import { syncCustomerTotals } from "./lib/finance";
 import { today } from "./lib/date";
 import { nav, View } from "./constants";
@@ -158,7 +159,8 @@ function WorkspaceApp({
         address: customer.address,
         contactPerson: customer.contactPerson,
         contact: customer.contact,
-        email: customer.email
+        email: customer.email,
+        taxExempt: customer.taxExempt
       } : quote.customerSnapshot,
       status: "approved",
       approvedAt: today(),
@@ -247,6 +249,43 @@ function WorkspaceApp({
       await onPersistData(workingData).catch(() => undefined);
     }
 
+    // 현금영수증은 세금계산서와 독립적으로 발행된다(자동 발행 설정일 때만 실제 호출).
+    // 세금계산서 발행 여부와 무관하게, 승인 마무리 시 함께 처리한다.
+    const applyCashPatch = (base: AppData, patch: Partial<QuoteRecord>): AppData => ({
+      ...base,
+      quotes: base.quotes.map((item) => (item.id === quote.id ? { ...item, ...patch } : item))
+    });
+    const finishApproval = async (base: AppData) => {
+      let next = base;
+      if (quote.invoiceType.issueCashReceipt && quote.invoiceIssuanceMode === "auto") {
+        const cashCustomer = approved.customerSnapshot;
+        if (!cashCustomer) {
+          next = applyCashPatch(next, { cashReceiptStatus: "failed", cashReceiptNote: "고객 정보가 없어 현금영수증을 발행할 수 없습니다." });
+        } else {
+          const cashResult = await issueCashbill({
+            quoteId: quote.id,
+            projectName: quote.form.projectName,
+            writeDate: approved.invoiceDate || today(),
+            total: quoteTotal(quote),
+            customer: {
+              name: cashCustomer.name,
+              businessNumber: cashCustomer.businessNumber,
+              phone: cashCustomer.contact,
+              email: cashCustomer.email
+            }
+          });
+          next = applyCashPatch(next, {
+            cashReceiptStatus: cashResult.cashReceiptStatus,
+            ...(cashResult.popbillCashbillId ? { popbillCashbillId: cashResult.popbillCashbillId } : {}),
+            cashReceiptNote: cashResult.message
+          });
+        }
+      }
+      await onPersistData(next).catch(() => setData(next));
+      approvingIds.current.delete(quote.id);
+      setApprovingQuoteId("");
+    };
+
     if (quote.invoiceIssuanceMode !== "auto" || !quote.invoiceType.issueInvoice) {
       workingData = {
         ...workingData,
@@ -256,9 +295,7 @@ function WorkspaceApp({
             : item
         )
       };
-      await onPersistData(workingData).catch(() => setData(workingData));
-      approvingIds.current.delete(quote.id);
-      setApprovingQuoteId("");
+      await finishApproval(workingData);
       return;
     }
 
@@ -269,9 +306,7 @@ function WorkspaceApp({
         ...workingData,
         quotes: workingData.quotes.map((item) => (item.id === quote.id ? { ...item, invoiceStatus: "failed", invoiceNote: "고객 사업자번호가 없어 발행할 수 없습니다." } : item))
       };
-      await onPersistData(workingData).catch(() => setData(workingData));
-      approvingIds.current.delete(quote.id);
-      setApprovingQuoteId("");
+      await finishApproval(workingData);
       return;
     }
 
@@ -285,7 +320,7 @@ function WorkspaceApp({
       items: quote.items.map((item) => ({
         name: `${item.category} ${item.description}`.trim(),
         supplyCost: item.price,
-        tax: Math.round(item.price * 0.1)
+        tax: invoiceCustomer.taxExempt ? 0 : Math.round(item.price * 0.1)
       })),
       customer: {
         businessNumber: invoiceCustomer.businessNumber ?? "",
@@ -293,7 +328,8 @@ function WorkspaceApp({
         ceoName: invoiceCustomer.representativeName,
         email: invoiceCustomer.email,
         contactName: invoiceCustomer.contactPerson,
-        address: invoiceCustomer.address
+        address: invoiceCustomer.address,
+        taxExempt: invoiceCustomer.taxExempt
       },
       taxInvoiceMemo: approved.taxInvoiceMemo,
       paymentAccount: data.workspaceProfile.paymentAccount.showOnDocuments && hasPaymentAccount(data.workspaceProfile)
@@ -322,9 +358,7 @@ function WorkspaceApp({
         ? { ...workingData.taxApiIntegration, lastIssuedAt: new Date().toISOString() }
         : workingData.taxApiIntegration
     };
-    await onPersistData(workingData).catch(() => setData(workingData));
-    approvingIds.current.delete(quote.id);
-    setApprovingQuoteId("");
+    await finishApproval(workingData);
   };
 
   const resendDocuments = async (quote: QuoteRecord) => {

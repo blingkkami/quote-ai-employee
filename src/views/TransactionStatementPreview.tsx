@@ -8,6 +8,7 @@ export function TransactionStatementPreview({ quote, customer, supplier, workspa
   const supply = quoteSubtotal(quote);
   const vat = quoteVat(quote);
   const total = quoteTotal(quote);
+  const taxExempt = quote.customerSnapshot?.taxExempt === true;
   const showPaymentAccount = workspaceProfile.paymentAccount.showOnDocuments && hasPaymentAccount(workspaceProfile);
   const statementMemo = quote.transactionStatementMemo?.trim() || "";
   const minimumItemRows = statementMemo ? 5 : showPaymentAccount || workspaceProfile.stampDataUrl ? 6 : 8;
@@ -57,7 +58,7 @@ export function TransactionStatementPreview({ quote, customer, supplier, workspa
               <td>{item.category || "-"}</td>
               <td>{item.description || "-"}</td>
               <td>{money(item.price)}원</td>
-              <td>{money(Math.round(item.price * 0.1))}원</td>
+              <td>{money(taxExempt ? 0 : Math.round(item.price * 0.1))}원</td>
             </tr>
           ))}
           {Array.from({ length: Math.max(0, minimumItemRows - quote.items.length) }, (_, index) => (

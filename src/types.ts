@@ -52,6 +52,7 @@ export type CustomerSnapshot = {
   contactPerson: string;
   contact: string;
   email?: string;
+  taxExempt?: boolean;
 };
 
 export type QuoteRecord = {
@@ -75,6 +76,9 @@ export type QuoteRecord = {
   popbillNtsConfirmNum?: string;
   invoiceStatus?: "pending" | "issued" | "sent" | "failed";
   invoiceNote?: string;
+  cashReceiptStatus?: "pending" | "issued" | "failed";
+  popbillCashbillId?: string;
+  cashReceiptNote?: string;
   documentEmailStatus?: "pending" | "sending" | "sent" | "failed";
   documentEmailRecipient?: string;
   documentEmailSentAt?: string;
@@ -93,6 +97,7 @@ export type Customer = {
   contactPerson: string;
   contact: string;
   email?: string;
+  taxExempt?: boolean;
   paymentCycle: "per_transaction" | "monthly_batch";
   invoicePreference: InvoicePreference;
   memo?: string;

@@ -10,6 +10,7 @@ const hasCredentials = Boolean(LINK_ID && SECRET_KEY);
 
 // Configure the SDK once, guarded by credential presence.
 let taxinvoiceService = null;
+let cashbillService = null;
 if (hasCredentials) {
   popbill.config({
     LinkID: LINK_ID,
@@ -21,6 +22,122 @@ if (hasCredentials) {
     defaultErrorHandler: () => {}
   });
   taxinvoiceService = popbill.TaxinvoiceService();
+  cashbillService = popbill.CashbillService();
+}
+
+const pad = (value) => String(value).padStart(2, "0");
+
+// 현금영수증 발행 (documentType: "cash"). 별도 라우트였던 것을 Vercel 무료 플랜 함수 수 제한 때문에 이 파일로 합쳤다.
+async function issueCashbill(body, connection, response) {
+  const { quoteId, projectName, writeDate, total, customer = {}, tradeUsage } = body;
+
+  if (!quoteId) {
+    response.status(400).json({ ok: false, message: "quoteId가 필요합니다." });
+    return;
+  }
+  if (!(Number(total) > 0)) {
+    response.status(400).json({ ok: false, message: "합계 금액이 올바르지 않습니다." });
+    return;
+  }
+  const writeDateDigits = String(writeDate || "").replace(/-/g, "");
+  if (!/^\d{8}$/.test(writeDateDigits)) {
+    response.status(400).json({ ok: false, message: "발행일은 YYYY-MM-DD 형식이어야 합니다." });
+    return;
+  }
+
+  const customerCorpNum = onlyDigits(customer.businessNumber);
+  const customerPhone = onlyDigits(customer.phone);
+  const usage = tradeUsage === "지출증빙" || (tradeUsage == null && customerCorpNum.length === 10) ? "지출증빙" : "소득공제";
+  const identityNum = usage === "지출증빙" ? customerCorpNum : customerPhone;
+  if (usage === "지출증빙" && customerCorpNum.length !== 10) {
+    response.status(400).json({ ok: false, message: "지출증빙용 현금영수증은 고객 사업자번호 10자리가 필요합니다." });
+    return;
+  }
+  if (usage === "소득공제" && identityNum.length < 9) {
+    response.status(400).json({ ok: false, message: "소득공제용 현금영수증은 고객 휴대폰번호가 필요합니다." });
+    return;
+  }
+
+  if (!hasCredentials) {
+    response.status(503).json({
+      ok: false,
+      mode: "not_configured",
+      cashReceiptStatus: "pending",
+      message: "팝빌 서버 인증정보가 없어 실제 발행하지 않았습니다. Vercel 환경변수를 등록한 뒤 다시 시도해 주세요.",
+      quoteId
+    });
+    return;
+  }
+
+  const supplierCorpNum = onlyDigits(connection.corp_num);
+  const cashbillMgtKey = `C${String(quoteId).replace(/[^A-Za-z0-9_-]/g, "-")}`.slice(0, 24);
+  const totalAmount = Math.round(Number(total));
+  // Cash receipts are issued 과세 by default; split VAT out of the tax-inclusive total.
+  const supplyCost = Math.round(totalAmount / 1.1);
+  const tax = totalAmount - supplyCost;
+  const now = new Date();
+  const tradeDT = `${writeDateDigits}${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+
+  const cashbill = {
+    mgtKey: cashbillMgtKey,
+    tradeType: "승인거래",
+    tradeUsage: usage === "지출증빙" ? "지출증빙용" : "소득공제용",
+    taxationType: "과세",
+    tradeDT,
+    identityNum,
+    franchiseCorpNum: supplierCorpNum,
+    franchiseCorpName: connection.corp_name || "",
+    franchiseCEOName: connection.ceo_name || "",
+    franchiseAddr: connection.address || "",
+    franchiseTEL: onlyDigits(connection.contact_phone) || "",
+    customerName: customer.name || "",
+    itemName: String(projectName || quoteId).slice(0, 100),
+    orderNumber: String(quoteId).slice(0, 40),
+    email: customer.email || "",
+    hp: customerPhone,
+    supplyCost: String(supplyCost),
+    tax: String(tax),
+    serviceFee: "0",
+    totalAmount: String(totalAmount),
+    smssendYN: false
+  };
+
+  const result = await new Promise((resolve) => {
+    // Installed popbill@1.64.2 signature:
+    // registIssue(CorpNum, Cashbill, Memo, UserID, EmailSubject, success, error)
+    cashbillService.registIssue(
+      supplierCorpNum,
+      cashbill,
+      `견적 ${projectName || quoteId} 현금영수증`, // memo
+      connection.popbill_user_id || "", // UserID
+      "", // emailSubject
+      (issueResult) => resolve({ ok: true, issueResult }),
+      (error) => resolve({ ok: false, error })
+    );
+  });
+
+  if (result.ok) {
+    response.status(200).json({
+      ok: true,
+      mode: "popbill",
+      cashReceiptStatus: "issued",
+      popbillCashbillId: cashbillMgtKey,
+      message: "현금영수증을 발행했습니다.",
+      quoteId
+    });
+    return;
+  }
+
+  const err = result.error || {};
+  const message = err.message || err.code || "현금영수증 발행에 실패했습니다.";
+  response.status(200).json({
+    ok: false,
+    mode: "popbill",
+    cashReceiptStatus: "failed",
+    popbillCashbillId: cashbillMgtKey,
+    message: String(message),
+    quoteId
+  });
 }
 
 export default async function handler(request, response) {
@@ -34,7 +151,7 @@ export default async function handler(request, response) {
   try {
     const connection = await getUserConnection(auth.client, auth.user.id);
     if (!connection) {
-      response.status(409).json({ ok: false, invoiceStatus: "pending", message: "설정에서 팝빌 자동발행을 먼저 연결해 주세요." });
+      response.status(409).json({ ok: false, invoiceStatus: "pending", cashReceiptStatus: "pending", message: "설정에서 팝빌 자동발행을 먼저 연결해 주세요." });
       return;
     }
     let body = request.body || {};
@@ -44,6 +161,11 @@ export default async function handler(request, response) {
       } catch {
         body = {};
       }
+    }
+
+    if (body.documentType === "cash") {
+      await issueCashbill(body, connection, response);
+      return;
     }
 
     const {
@@ -86,6 +208,11 @@ export default async function handler(request, response) {
       response.status(400).json({ ok: false, message: "발행일은 YYYY-MM-DD 형식이어야 합니다." });
       return;
     }
+    const taxExempt = customer.taxExempt === true;
+    if (taxExempt && Number(tax) !== 0) {
+      response.status(400).json({ ok: false, message: "면세 거래는 부가세가 0원이어야 합니다." });
+      return;
+    }
 
     // Never report a successful issue when server credentials are missing.
     if (!hasCredentials) {
@@ -118,7 +245,7 @@ export default async function handler(request, response) {
       chargeDirection: "정과금",
       issueType: "정발행",
       purposeType: "청구",
-      taxType: "과세",
+      taxType: taxExempt ? "면세" : "과세",
       invoicerCorpNum: supplierCorpNum,
       invoicerCorpName: connection.corp_name || "",
       invoicerCEOName: connection.ceo_name || "",

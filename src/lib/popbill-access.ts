@@ -51,3 +51,61 @@ export const getPopbillStatus = async () => parseResult(await authorizedFetch("/
 export const disconnectPopbill = async () => parseResult(await authorizedFetch("/api/popbill/connect", {
   method: "DELETE"
 }));
+
+export type BusinessStatusResult = {
+  ok: boolean;
+  checked: boolean;
+  active: boolean | null;
+  message: string;
+};
+
+export const checkBusinessStatus = async (businessNumber: string): Promise<BusinessStatusResult> => {
+  try {
+    const response = await authorizedFetch("/api/popbill/connect", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "status", businessNumber })
+    });
+    const result = await response.json() as Partial<BusinessStatusResult>;
+    return {
+      ok: response.ok && Boolean(result.ok),
+      checked: Boolean(result.checked),
+      active: result.active ?? null,
+      message: result.message || `사업자 상태조회에 실패했습니다. (HTTP ${response.status})`
+    };
+  } catch (error) {
+    return { ok: false, checked: false, active: null, message: error instanceof Error ? error.message : String(error) };
+  }
+};
+
+export type CompanyLookupResult = {
+  ok: boolean;
+  found: boolean;
+  corpName?: string;
+  ceoName?: string;
+  address?: string;
+  taxType?: "과세" | "면세" | "unknown";
+  message: string;
+};
+
+export const lookupCompany = async (businessNumber: string): Promise<CompanyLookupResult> => {
+  try {
+    const response = await authorizedFetch("/api/popbill/connect", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "lookup", businessNumber })
+    });
+    const result = await response.json() as Partial<CompanyLookupResult>;
+    return {
+      ok: response.ok && Boolean(result.ok),
+      found: Boolean(result.found),
+      corpName: result.corpName,
+      ceoName: result.ceoName,
+      address: result.address,
+      taxType: result.taxType,
+      message: result.message || `기업정보조회에 실패했습니다. (HTTP ${response.status})`
+    };
+  } catch (error) {
+    return { ok: false, found: false, message: error instanceof Error ? error.message : String(error) };
+  }
+};

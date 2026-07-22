@@ -6,10 +6,13 @@ import { Input } from "../components/Input";
 import { AddressInput } from "../components/AddressInput";
 import { Status } from "../components/Status";
 import {
+  checkBusinessStatus,
   checkPopbill,
   disconnectPopbill,
   getPopbillStatus,
   joinPopbill,
+  lookupCompany,
+  type BusinessStatusResult,
   type PopbillConnectionResult,
   type PopbillProfile
 } from "../lib/popbill-access";
@@ -28,9 +31,49 @@ export function SettingsView({ integration, onChange, data, onRestore, onDocumen
   const [showSignup, setShowSignup] = useState(false);
   const [popbillPassword, setPopbillPassword] = useState("");
   const [activeTab, setActiveTab] = useState<"settings" | "guide">("settings");
+  const [statusResult, setStatusResult] = useState<BusinessStatusResult | null>(null);
+  const [profileLookupHint, setProfileLookupHint] = useState("");
+  const lookedUpBizRef = useRef("");
   const importInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => setDraft(integration), [integration]);
+
+  // 기업정보조회 자동완성: 가입 정보 입력 중 사업자번호가 10자리가 되면 비어 있는 항목만 채운다.
+  const profileBusinessNumber = draft.businessNumber;
+  useEffect(() => {
+    if (draft.isConnected) return;
+    const biz = profileBusinessNumber.replace(/\D/g, "");
+    if (biz.length !== 10) {
+      setProfileLookupHint("");
+      return;
+    }
+    if (lookedUpBizRef.current === biz) return;
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      lookedUpBizRef.current = biz;
+      try {
+        const info = await lookupCompany(biz);
+        if (cancelled || !info.ok || !info.found) return;
+        let applied = false;
+        setDraft((prev) => {
+          const patch: Partial<TaxApiIntegration> = {};
+          if (info.corpName && !prev.corpName?.trim()) patch.corpName = info.corpName;
+          if (info.ceoName && !prev.ceoName?.trim()) patch.ceoName = info.ceoName;
+          if (info.address && !prev.address?.trim()) patch.address = info.address;
+          if (!Object.keys(patch).length) return prev;
+          applied = true;
+          return { ...prev, ...patch };
+        });
+        if (applied && !cancelled) setProfileLookupHint("사업자번호로 상호·대표자·주소를 자동으로 채웠어요. 필요하면 수정하세요.");
+      } catch {
+        // 조회 실패 시 수동 입력을 그대로 유지한다.
+      }
+    }, 500);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [draft.isConnected, profileBusinessNumber]);
   const patchDraft = (patch: Partial<TaxApiIntegration>) => setDraft((prev) => ({ ...prev, ...patch }));
 
   const applyConnectedResult = (next: PopbillConnectionResult) => {
@@ -75,8 +118,19 @@ export function SettingsView({ integration, onChange, data, onRestore, onDocumen
   };
 
   const beginConnection = async () => {
+    setStatusResult(null);
+    const digits = draft.businessNumber.replace(/\D/g, "");
+    const statusPromise = digits.length === 10 ? checkBusinessStatus(draft.businessNumber) : null;
     const next = await runConnectionAction(() => checkPopbill(draft.businessNumber));
     if (next.needsSignup) setShowSignup(true);
+    if (statusPromise) {
+      try {
+        const status = await statusPromise;
+        if (status.checked) setStatusResult(status);
+      } catch {
+        // 상태조회 실패는 연결 흐름을 막지 않는다.
+      }
+    }
   };
 
   const profile: PopbillProfile = {
@@ -175,11 +229,20 @@ export function SettingsView({ integration, onChange, data, onRestore, onDocumen
             <div className="settings-section connection-start">
               <SectionTitle title="사업자번호로 시작" hint="이미 입력한 정보가 있으면 그대로 불러옵니다." />
               <div className="connection-start-row">
-                <Input label="사업자등록번호" value={draft.businessNumber} placeholder="000-00-00000" inputMode="numeric" maxLength={12} format={formatBusinessNumber} onChange={(value) => { patchDraft({ businessNumber: value, isConnected: false }); setResult(null); setShowSignup(false); }} />
+                <Input label="사업자등록번호" value={draft.businessNumber} placeholder="000-00-00000" inputMode="numeric" maxLength={12} format={formatBusinessNumber} onChange={(value) => { patchDraft({ businessNumber: value, isConnected: false }); setResult(null); setShowSignup(false); setStatusResult(null); }} />
                 <button onClick={beginConnection} disabled={checking || draft.businessNumber.replace(/\D/g, "").length !== 10}>
                   {checking ? <LoaderCircle className="spin" size={17} /> : <Link2 size={17} />}{checking ? "확인 중" : "연결 시작"}
                 </button>
               </div>
+            </div>
+          )}
+
+          {statusResult && !draft.isConnected && (
+            <div
+              className={statusResult.active === true ? "notice" : statusResult.active === false ? "alert danger-alert" : "field-help"}
+              role="status"
+            >
+              {statusResult.message}
             </div>
           )}
 
@@ -192,6 +255,7 @@ export function SettingsView({ integration, onChange, data, onRestore, onDocumen
                 <Input label="업태" value={draft.bizType ?? ""} placeholder="예: 서비스업" onChange={(value) => patchDraft({ bizType: value })} />
                 <Input label="종목" value={draft.bizClass ?? ""} placeholder="예: 디자인" onChange={(value) => patchDraft({ bizClass: value })} />
               </div>
+              {profileLookupHint && <p className="field-help">{profileLookupHint}</p>}
               <AddressInput label="사업장 주소" value={draft.address ?? ""} onChange={(value) => patchDraft({ address: value })} />
               <div className="grid two">
                 <Input label="담당자명" value={draft.contactName ?? ""} placeholder="세금계산서 담당자" onChange={(value) => patchDraft({ contactName: value })} />

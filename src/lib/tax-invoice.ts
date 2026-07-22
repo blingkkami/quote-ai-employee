@@ -11,6 +11,7 @@ export type IssueTaxInvoiceCustomer = {
   email?: string;
   contactName?: string;
   address?: string;
+  taxExempt?: boolean;
 };
 
 export type IssueTaxInvoicePayload = {

@@ -103,7 +103,8 @@ export function QuoteBuilder({
           address: selected.address,
           contactPerson: selected.contactPerson,
           contact: selected.contact,
-          email: selected.email
+          email: selected.email,
+          taxExempt: selected.taxExempt
         }
       : undefined;
     setDraft({
