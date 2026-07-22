@@ -6,6 +6,7 @@ import {
   saveUserConnection
 } from "../../server/popbill/auth.js";
 import { callPopbill, getBizInfoCheckService, getClosedownService, getPopbillService } from "../../server/popbill/service.js";
+import { getPopbillConfig } from "../../server/popbill/config.js";
 
 const digits = (value) => String(value ?? "").replace(/\D/g, "");
 const text = (value, maxLength = 200) => String(value ?? "").trim().slice(0, maxLength);
@@ -13,7 +14,7 @@ const text = (value, maxLength = 200) => String(value ?? "").trim().slice(0, max
 // 조회(상태조회·기업정보조회)에 쓸 팝빌 회원 사업자번호. 연결된 사용자는 본인 계정, 미연결(가입 전)이면 플랫폼 계정을 사용한다.
 const resolveMemberCorpNum = async (admin, userId) => {
   const connection = await getUserConnection(admin, userId).catch(() => null);
-  return digits(connection?.corp_num) || digits(process.env.POPBILL_CORP_NUM);
+  return digits(connection?.corp_num) || getPopbillConfig().corpNum;
 };
 
 // 국세청 납세자 상태 코드(팝빌 휴폐업조회 state): 0=미등록, 1=사업중, 2=폐업, 3=휴업.

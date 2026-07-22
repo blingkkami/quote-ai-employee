@@ -1,26 +1,24 @@
 import popbill from "popbill";
+import { getPopbillConfig } from "./config.js";
 
 // Configure the SDK once per invocation, guarded by credential presence.
 // popbill.config only mutates a shared configuration object, so it is safe to
 // call repeatedly; the service singletons keep a reference to that object.
 function configure() {
-  const linkId = process.env.POPBILL_LINK_ID;
-  const secretKey = process.env.POPBILL_SECRET_KEY;
-  const environment = process.env.POPBILL_IS_TEST === "false" ? "production" : "test";
-  const missing = ["POPBILL_LINK_ID", "POPBILL_SECRET_KEY"].filter((name) => !process.env[name]);
-  if (missing.length) return { ok: false, linkId, environment, missing };
+  const config = getPopbillConfig();
+  if (config.missing.length) return { ok: false, ...config };
 
   popbill.config({
-    LinkID: linkId,
-    SecretKey: secretKey,
-    IsTest: environment === "test",
+    LinkID: config.linkId,
+    SecretKey: config.secretKey,
+    IsTest: config.isTest,
     IPRestrictOnOff: true,
     UseStaticIP: false,
     UseLocalTimeYN: true,
     defaultErrorHandler: () => {}
   });
 
-  return { ok: true, linkId, environment, missing: [] };
+  return { ok: true, ...config };
 }
 
 export function getPopbillService() {

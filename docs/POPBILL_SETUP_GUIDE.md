@@ -13,29 +13,25 @@
 
 ## 2. Vercel 환경변수 등록
 
-Vercel 프로젝트의 Settings > Environment Variables에 다음 값을 등록합니다.
+Vercel 프로젝트의 Settings > Environment Variables에 아래 변수 한 개를 등록합니다. 값은 줄바꿈 없이 JSON 전체를 붙여넣습니다.
 
 ```text
-POPBILL_LINK_ID=팝빌에서_발급받은_LinkID
-POPBILL_SECRET_KEY=팝빌에서_발급받은_SecretKey
-POPBILL_CORP_NUM=사업자등록번호_숫자10자리
-POPBILL_CORP_NAME=공급자_상호
-POPBILL_CEO_NAME=대표자명
-POPBILL_USER_ID=팝빌_회원아이디
-POPBILL_IS_TEST=true
-POPBILL_ACCESS_TOKEN=48자리_이상의_임의_보안키
+이름: POPBILL_CONFIG
+값: {"linkId":"팝빌에서_발급받은_LinkID","secretKey":"팝빌에서_발급받은_SecretKey","corpNum":"조회비용을_부담할_사업자번호10자리","isTest":true}
 ```
 
 환경변수를 바꾼 뒤에는 Vercel에서 다시 배포해야 새 값이 적용됩니다.
 
+기존의 `POPBILL_LINK_ID`, `POPBILL_SECRET_KEY`, `POPBILL_CORP_NUM`, `POPBILL_IS_TEST` 개별 변수도 계속 지원하지만 새 설치에서는 `POPBILL_CONFIG` 한 개만 사용하는 것을 권장합니다.
+
 ## 3. 브라우저 최초 1회 연결
 
-1. 앱의 설정 > 세금계산서 연동 > 연동 설정을 엽니다.
-2. `POPBILL_ACCESS_TOKEN`에 등록한 발행 보안키를 입력합니다.
-3. `연결하고 상태 확인`을 누릅니다.
-4. `팝빌 서버 연결과 연동회원 상태를 확인했습니다`가 나오면 완료입니다.
+1. 앱의 설정 > 팝빌 자동발행에서 사업자등록번호를 입력합니다.
+2. `연결 시작`을 누릅니다.
+3. 신규 연동회원이면 안내되는 사업장·담당자 정보를 확인하고 한 번만 가입합니다.
+4. `팝빌 자동발행 연결이 정상입니다`가 나오면 완료입니다.
 
-연결에 성공하면 원래 보안키는 저장하지 않고 서버가 서명한 `HttpOnly` 보안 쿠키만 남깁니다. 같은 브라우저에서는 다시 입력할 필요가 없습니다. 보안키 변경, 쿠키 삭제, 브라우저 데이터 초기화, 직접 연결 해제 시에만 다시 연결합니다.
+`SecretKey`는 고객이 입력하지 않으며 Vercel 서버에만 보관됩니다. 고객별 팝빌 비밀번호도 블링빌 데이터베이스에 저장하지 않습니다.
 
 ## 4. 테스트 발행
 
@@ -51,7 +47,7 @@ POPBILL_ACCESS_TOKEN=48자리_이상의_임의_보안키
 
 1. 테스트 발행을 확인합니다.
 2. [팝빌 운영 전환](https://developers.popbill.com/customer-center/serviceopen)을 신청합니다.
-3. 승인 후 Vercel의 `POPBILL_IS_TEST`를 `false`로 바꿉니다.
+3. 승인 후 `POPBILL_CONFIG` 값의 `"isTest":true`를 `"isTest":false`로 바꿉니다.
 4. 다시 배포하고 설정 화면에서 연결 상태가 `운영 환경`인지 확인합니다.
 5. 소액 또는 내부 확인 가능한 거래로 최초 실발행을 검증합니다.
 

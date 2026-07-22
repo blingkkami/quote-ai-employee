@@ -13,7 +13,7 @@ vi.mock("../../../server/popbill/auth.js", () => ({
   getUserConnection: mocks.getUserConnection
 }));
 
-const envKeys = ["POPBILL_LINK_ID", "POPBILL_SECRET_KEY", "POPBILL_IS_TEST"];
+const envKeys = ["POPBILL_CONFIG", "POPBILL_LINK_ID", "POPBILL_SECRET_KEY", "POPBILL_IS_TEST"];
 const originalEnv = Object.fromEntries(envKeys.map((key) => [key, process.env[key]]));
 const makeResponse = () => ({ statusCode: 200, body: null, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } });
 const payload = { quoteId: "quo_retry_safe_1", projectName: "테스트 견적", writeDate: "2026-07-14", supplyCost: 100000, tax: 10000, total: 110000, items: [{ name: "디자인", supplyCost: 100000, tax: 10000 }], customer: { businessNumber: "123-45-67890", name: "테스트 고객" }, taxInvoiceMemo: "7월 말까지 입금 요청", paymentAccount: { bankName: "국민은행", accountNumber: "123-456", accountHolder: "공급자" } };
@@ -35,6 +35,21 @@ describe("Popbill issue handler", () => {
     expect(response.statusCode).toBe(503);
     expect(response.body).toMatchObject({ ok: false, invoiceStatus: "pending" });
     expect(mocks.registIssue).not.toHaveBeenCalled();
+  });
+
+  it("accepts the bundled POPBILL_CONFIG environment variable", async () => {
+    process.env.POPBILL_CONFIG = JSON.stringify({
+      linkId: "link",
+      secretKey: "secret",
+      corpNum: "1112233333",
+      isTest: true
+    });
+    mocks.registIssue.mockImplementation((...args) => args[8]({ ntsconfirmNum: "nts-bundled" }));
+    const { default: handler } = await import("../../../api/popbill/issue.js");
+    const response = makeResponse();
+    await handler({ method: "POST", body: payload }, response);
+    expect(mocks.config).toHaveBeenCalledWith(expect.objectContaining({ LinkID: "link", SecretKey: "secret", IsTest: true }));
+    expect(response.body).toMatchObject({ ok: true, invoiceStatus: "issued" });
   });
 
   it("issues with the signed-in user's supplier connection", async () => {

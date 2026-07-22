@@ -1,9 +1,11 @@
 import popbill from "popbill";
 import { authorizeRequest, getUserConnection } from "../../server/popbill/auth.js";
+import { getPopbillConfig } from "../../server/popbill/config.js";
 
-const LINK_ID = process.env.POPBILL_LINK_ID;
-const SECRET_KEY = process.env.POPBILL_SECRET_KEY;
-const IS_TEST = process.env.POPBILL_IS_TEST !== "false";
+const popbillConfig = getPopbillConfig();
+const LINK_ID = popbillConfig.linkId;
+const SECRET_KEY = popbillConfig.secretKey;
+const IS_TEST = popbillConfig.isTest;
 const configured = Boolean(LINK_ID && SECRET_KEY);
 
 let taxinvoiceService = null;

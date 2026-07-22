@@ -10,7 +10,7 @@ vi.mock("../../../server/popbill/auth.js", () => ({
   getUserConnection: mocks.getUserConnection
 }));
 
-const envKeys = ["POPBILL_LINK_ID", "POPBILL_SECRET_KEY", "POPBILL_IS_TEST"];
+const envKeys = ["POPBILL_CONFIG", "POPBILL_LINK_ID", "POPBILL_SECRET_KEY", "POPBILL_IS_TEST"];
 const originalEnv = Object.fromEntries(envKeys.map((key) => [key, process.env[key]]));
 const makeResponse = () => ({ statusCode: 200, body: null, status(code) { this.statusCode = code; return this; }, setHeader() {}, json(body) { this.body = body; return this; } });
 
