@@ -8,6 +8,7 @@ import { Status } from "../components/Status";
 import {
   checkBusinessStatus,
   checkPopbill,
+  connectExistingPopbill,
   disconnectPopbill,
   getPopbillStatus,
   joinPopbill,
@@ -29,6 +30,7 @@ export function SettingsView({ integration, onChange, data, onRestore, onDocumen
   const [checking, setChecking] = useState(false);
   const [result, setResult] = useState<PopbillConnectionResult | null>(null);
   const [showSignup, setShowSignup] = useState(false);
+  const [showExistingConnection, setShowExistingConnection] = useState(false);
   const [popbillPassword, setPopbillPassword] = useState("");
   const [activeTab, setActiveTab] = useState<"settings" | "guide">("settings");
   const [statusResult, setStatusResult] = useState<BusinessStatusResult | null>(null);
@@ -97,6 +99,7 @@ export function SettingsView({ integration, onChange, data, onRestore, onDocumen
     setDraft(connected);
     onChange(connected);
     setShowSignup(false);
+    setShowExistingConnection(false);
     setPopbillPassword("");
   };
 
@@ -123,6 +126,7 @@ export function SettingsView({ integration, onChange, data, onRestore, onDocumen
     const statusPromise = digits.length === 10 ? checkBusinessStatus(draft.businessNumber) : null;
     const next = await runConnectionAction(() => checkPopbill(draft.businessNumber));
     if (next.needsSignup) setShowSignup(true);
+    if (next.needsExistingConnection) setShowExistingConnection(true);
     if (statusPromise) {
       try {
         const status = await statusPromise;
@@ -151,6 +155,10 @@ export function SettingsView({ integration, onChange, data, onRestore, onDocumen
     await runConnectionAction(() => joinPopbill(profile));
   };
 
+  const completeExistingConnection = async () => {
+    await runConnectionAction(() => connectExistingPopbill(draft.businessNumber, draft.popbillUserId ?? ""));
+  };
+
   const checkStatus = async () => {
     const next = await runConnectionAction(getPopbillStatus);
     if (!next.configured) onChange({ ...draft, isConnected: false, lastTestedAt: new Date().toISOString() });
@@ -164,6 +172,7 @@ export function SettingsView({ integration, onChange, data, onRestore, onDocumen
       setDraft(disconnected);
       onChange(disconnected);
       setShowSignup(false);
+      setShowExistingConnection(false);
     }
   };
 
@@ -229,7 +238,7 @@ export function SettingsView({ integration, onChange, data, onRestore, onDocumen
             <div className="settings-section connection-start">
               <SectionTitle title="사업자번호로 시작" hint="이미 입력한 정보가 있으면 그대로 불러옵니다." />
               <div className="connection-start-row">
-                <Input label="사업자등록번호" value={draft.businessNumber} placeholder="000-00-00000" inputMode="numeric" maxLength={12} format={formatBusinessNumber} onChange={(value) => { patchDraft({ businessNumber: value, isConnected: false }); setResult(null); setShowSignup(false); setStatusResult(null); }} />
+                <Input label="사업자등록번호" value={draft.businessNumber} placeholder="000-00-00000" inputMode="numeric" maxLength={12} format={formatBusinessNumber} onChange={(value) => { patchDraft({ businessNumber: value, isConnected: false }); setResult(null); setShowSignup(false); setShowExistingConnection(false); setStatusResult(null); }} />
                 <button onClick={beginConnection} disabled={checking || draft.businessNumber.replace(/\D/g, "").length !== 10}>
                   {checking ? <LoaderCircle className="spin" size={17} /> : <Link2 size={17} />}{checking ? "확인 중" : "연결 시작"}
                 </button>
@@ -243,6 +252,22 @@ export function SettingsView({ integration, onChange, data, onRestore, onDocumen
               role="status"
             >
               {statusResult.message}
+            </div>
+          )}
+
+          {showExistingConnection && !draft.isConnected && (
+            <div className="settings-section popbill-signup-form">
+              <SectionTitle title="기존 팝빌 회원 연결" hint="팝빌에 등록된 담당자 이메일과 현재 블링빌 로그인 이메일을 확인해 안전하게 연결합니다." />
+              <div className="popbill-account-fields">
+                <Input label="팝빌 아이디" value={draft.popbillUserId ?? ""} placeholder="가입할 때 만든 팝빌 아이디" onChange={(value) => patchDraft({ popbillUserId: value })} />
+                <p>비밀번호는 다시 입력하지 않습니다. 팝빌의 담당자 이메일이 블링빌 로그인 이메일과 같아야 합니다.</p>
+              </div>
+              <div className="actions">
+                <button onClick={completeExistingConnection} disabled={checking || !/^[A-Za-z0-9._-]{6,50}$/.test(draft.popbillUserId ?? "")}>
+                  {checking ? <LoaderCircle className="spin" size={17} /> : <Link2 size={17} />}{checking ? "확인 중" : "기존 회원 연결"}
+                </button>
+                <button className="ghost" onClick={() => setShowExistingConnection(false)} disabled={checking}>취소</button>
+              </div>
             </div>
           )}
 

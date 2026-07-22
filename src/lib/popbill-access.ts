@@ -19,6 +19,7 @@ export type PopbillConnectionResult = {
   configured: boolean;
   needsSignup?: boolean;
   existingMember?: boolean;
+  needsExistingConnection?: boolean;
   environment?: "test" | "production";
   connection?: Record<string, string>;
   message: string;
@@ -44,6 +45,12 @@ export const joinPopbill = async (profile: PopbillProfile) => parseResult(await 
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({ mode: "join", profile })
+}));
+
+export const connectExistingPopbill = async (businessNumber: string, popbillUserId: string) => parseResult(await authorizedFetch("/api/popbill/connect", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ mode: "connect-existing", businessNumber, popbillUserId })
 }));
 
 export const getPopbillStatus = async () => parseResult(await authorizedFetch("/api/popbill/status"));

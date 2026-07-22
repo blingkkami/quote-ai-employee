@@ -63,6 +63,20 @@ const connectionPayload = (profile) => ({
   connected_at: new Date().toISOString()
 });
 
+const existingConnectionPayload = (corpNum, popbillUserId, corpInfo, contactInfo) => ({
+  corp_num: corpNum,
+  popbill_user_id: text(popbillUserId, 50),
+  corp_name: text(corpInfo?.corpName),
+  ceo_name: text(corpInfo?.ceoname, 100),
+  address: text(corpInfo?.addr, 300),
+  biz_type: text(corpInfo?.bizType, 100),
+  biz_class: text(corpInfo?.bizClass, 100),
+  contact_name: text(contactInfo?.personName, 100),
+  contact_email: text(contactInfo?.email, 100),
+  contact_phone: text(contactInfo?.tel, 20),
+  connected_at: new Date().toISOString()
+});
+
 const validateJoinProfile = (profile) => {
   const required = [
     [digits(profile.businessNumber).length === 10, "사업자등록번호 10자리를 확인해 주세요."],
@@ -196,13 +210,62 @@ export default async function handler(request, response) {
     const member = await callPopbill(popbill.service, "checkIsMember", [corpNum]);
     const isMember = member.ok && Number(member.result?.code) === 1;
 
-    if (body.mode !== "join") {
-      if (isMember) {
-        response.status(409).json({
+    if (body.mode === "connect-existing") {
+      if (!isMember) {
+        response.status(404).json({ ok: false, configured: false, message: "팝빌 가입 정보를 찾지 못했습니다. 신규 가입으로 진행해 주세요." });
+        return;
+      }
+      const popbillUserId = text(profile.popbillUserId, 50);
+      if (!/^[A-Za-z0-9._-]{6,50}$/.test(popbillUserId)) {
+        response.status(400).json({ ok: false, configured: false, message: "팝빌 아이디를 확인해 주세요." });
+        return;
+      }
+
+      const contact = await callPopbill(popbill.service, "getContactInfo", [corpNum, popbillUserId, ""]);
+      if (!contact.ok) {
+        response.status(403).json({ ok: false, configured: false, message: String(contact.error?.message || contact.error?.code || "팝빌 담당자 정보를 확인하지 못했습니다.") });
+        return;
+      }
+      const loginEmail = text(auth.user.email, 100).toLowerCase();
+      const contactEmail = text(contact.result?.email, 100).toLowerCase();
+      if (!loginEmail || !contactEmail || loginEmail !== contactEmail) {
+        response.status(403).json({
           ok: false,
           configured: false,
+          message: "팝빌 담당자 이메일과 현재 블링빌 로그인 이메일이 일치하지 않습니다. 팝빌 담당자 이메일을 확인해 주세요."
+        });
+        return;
+      }
+      if (Number(contact.result?.state) !== 1) {
+        response.status(403).json({ ok: false, configured: false, message: "사용 중인 팝빌 담당자 계정만 연결할 수 있습니다." });
+        return;
+      }
+
+      const corp = await callPopbill(popbill.service, "getCorpInfo", [corpNum, popbillUserId]);
+      if (!corp.ok) {
+        response.status(403).json({ ok: false, configured: false, message: String(corp.error?.message || corp.error?.code || "팝빌 회사정보를 확인하지 못했습니다.") });
+        return;
+      }
+      const connection = existingConnectionPayload(corpNum, popbillUserId, corp.result, contact.result);
+      await saveUserConnection(auth.admin, auth.user.id, connection);
+      response.status(200).json({
+        ok: true,
+        configured: true,
+        connection,
+        environment: popbill.environment,
+        message: "기존 팝빌 회원 연결이 완료되었습니다. 이제 승인된 견적을 자동 발행할 수 있습니다."
+      });
+      return;
+    }
+
+    if (body.mode !== "join") {
+      if (isMember) {
+        response.status(200).json({
+          ok: true,
+          configured: false,
           existingMember: true,
-          message: "이미 팝빌 연동회원인 사업자입니다. 안전한 계정 확인을 위해 블링빌 관리자에게 연결을 요청해 주세요."
+          needsExistingConnection: true,
+          message: "이미 팝빌 회원인 사업자입니다. 팝빌 아이디로 본인 확인 후 바로 연결할 수 있습니다."
         });
         return;
       }
@@ -211,7 +274,7 @@ export default async function handler(request, response) {
     }
 
     if (isMember) {
-      response.status(409).json({ ok: false, configured: false, existingMember: true, message: "이미 가입된 사업자입니다. 관리자에게 연결 확인을 요청해 주세요." });
+      response.status(409).json({ ok: false, configured: false, existingMember: true, needsExistingConnection: true, message: "이미 가입된 사업자입니다. 기존 팝빌 회원 연결을 이용해 주세요." });
       return;
     }
     const validationError = validateJoinProfile(profile);

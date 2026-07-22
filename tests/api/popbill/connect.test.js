@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   checkIsMember: vi.fn(),
   joinMember: vi.fn(),
+  getContactInfo: vi.fn(),
+  getCorpInfo: vi.fn(),
   checkCorpNum: vi.fn(),
   checkBizInfo: vi.fn(),
   getUserConnection: vi.fn(),
@@ -14,13 +16,13 @@ const mocks = vi.hoisted(() => ({
 vi.mock("popbill", () => ({
   default: {
     config: vi.fn(),
-    TaxinvoiceService: () => ({ checkIsMember: mocks.checkIsMember, joinMember: mocks.joinMember }),
+    TaxinvoiceService: () => ({ checkIsMember: mocks.checkIsMember, joinMember: mocks.joinMember, getContactInfo: mocks.getContactInfo, getCorpInfo: mocks.getCorpInfo }),
     ClosedownService: () => ({ checkCorpNum: mocks.checkCorpNum }),
     BizInfoCheckService: () => ({ checkBizInfo: mocks.checkBizInfo })
   }
 }));
 vi.mock("../../../server/popbill/auth.js", () => ({
-  authorizeRequest: async () => ({ user: { id: "user-1" }, admin: {} }),
+  authorizeRequest: async () => ({ user: { id: "user-1", email: "owner@example.com" }, admin: {} }),
   getUserConnection: mocks.getUserConnection,
   getConnectionByCorpNum: mocks.getConnectionByCorpNum,
   saveUserConnection: mocks.saveUserConnection,
@@ -53,6 +55,35 @@ describe("Popbill tenant connection", () => {
     const response = makeResponse();
     await handler({ method: "POST", body: { mode: "check", businessNumber: "111-22-33333" } }, response);
     expect(response.body).toMatchObject({ ok: true, configured: false, needsSignup: true });
+  });
+
+  it("offers secure reconnection when the business is already a Popbill member", async () => {
+    mocks.checkIsMember.mockImplementation((_corpNum, success) => success({ code: 1 }));
+    const { default: handler } = await import("../../../api/popbill/connect.js");
+    const response = makeResponse();
+    await handler({ method: "POST", body: { mode: "check", businessNumber: "111-22-33333" } }, response);
+    expect(response.body).toMatchObject({ ok: true, configured: false, existingMember: true, needsExistingConnection: true });
+  });
+
+  it("reconnects an existing member after matching the Popbill contact email", async () => {
+    mocks.checkIsMember.mockImplementation((_corpNum, success) => success({ code: 1 }));
+    mocks.getContactInfo.mockImplementation((_corpNum, _contactId, _userId, success) => success({ id: "owner01", email: "owner@example.com", personName: "김담당", tel: "01012345678", state: 1 }));
+    mocks.getCorpInfo.mockImplementation((_corpNum, _userId, success) => success({ corpName: "블링까미", ceoname: "김대표", addr: "서울", bizType: "서비스", bizClass: "디자인" }));
+    const { default: handler } = await import("../../../api/popbill/connect.js");
+    const response = makeResponse();
+    await handler({ method: "POST", body: { mode: "connect-existing", businessNumber: "111-22-33333", popbillUserId: "owner01" } }, response);
+    expect(response.body).toMatchObject({ ok: true, configured: true, connection: { corp_num: "1112233333", popbill_user_id: "owner01", contact_email: "owner@example.com" } });
+    expect(mocks.saveUserConnection).toHaveBeenCalledWith({}, "user-1", expect.objectContaining({ corp_num: "1112233333" }));
+  });
+
+  it("rejects an existing member when the contact email does not match the login", async () => {
+    mocks.checkIsMember.mockImplementation((_corpNum, success) => success({ code: 1 }));
+    mocks.getContactInfo.mockImplementation((_corpNum, _contactId, _userId, success) => success({ id: "owner01", email: "other@example.com", state: 1 }));
+    const { default: handler } = await import("../../../api/popbill/connect.js");
+    const response = makeResponse();
+    await handler({ method: "POST", body: { mode: "connect-existing", businessNumber: "111-22-33333", popbillUserId: "owner01" } }, response);
+    expect(response.statusCode).toBe(403);
+    expect(mocks.saveUserConnection).not.toHaveBeenCalled();
   });
 
   it("reports an active business as 정상 on status check", async () => {
