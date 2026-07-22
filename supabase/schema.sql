@@ -101,3 +101,44 @@ create index if not exists email_oauth_states_expires_at_idx on public.email_oau
 alter table public.email_oauth_states enable row level security;
 revoke all on table public.email_oauth_states from anon;
 revoke all on table public.email_oauth_states from authenticated;
+
+-- 고객센터 문의. 사용자는 자신의 문의만 등록하고 확인할 수 있습니다.
+create table if not exists public.support_tickets (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  contact_email text not null check (char_length(contact_email) between 3 and 320),
+  category text not null check (category in ('bug', 'suggestion', 'billing', 'popbill', 'account', 'other')),
+  subject text not null check (char_length(subject) between 2 and 80),
+  message text not null check (char_length(message) between 10 and 2000),
+  status text not null default 'open' check (status in ('open', 'in_progress', 'answered', 'closed')),
+  page_path text not null default '',
+  context jsonb not null default '{}'::jsonb,
+  admin_reply text,
+  replied_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists support_tickets_user_created_idx
+  on public.support_tickets (user_id, created_at desc);
+create index if not exists support_tickets_status_created_idx
+  on public.support_tickets (status, created_at desc);
+
+alter table public.support_tickets enable row level security;
+
+drop policy if exists "insert own support ticket" on public.support_tickets;
+create policy "insert own support ticket" on public.support_tickets
+  for insert to authenticated with check ((select auth.uid()) = user_id);
+
+drop policy if exists "select own support tickets" on public.support_tickets;
+create policy "select own support tickets" on public.support_tickets
+  for select to authenticated using ((select auth.uid()) = user_id);
+
+revoke all on table public.support_tickets from anon;
+revoke update, delete on table public.support_tickets from authenticated;
+grant select, insert on table public.support_tickets to authenticated;
+
+drop trigger if exists support_tickets_updated_at on public.support_tickets;
+create trigger support_tickets_updated_at
+  before update on public.support_tickets
+  for each row execute function public.set_updated_at();

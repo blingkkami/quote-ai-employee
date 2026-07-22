@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
-import { Cloud, Info, LogOut, Plus, Printer, UserRound } from "lucide-react";
+import { CircleHelp, Cloud, Info, LogOut, Plus, Printer, UserRound } from "lucide-react";
 import type { AppData, QuoteRecord, SaleRecord, TaxApiIntegration } from "./types";
 import { emptyQuote } from "./data/quote-defaults";
 import { quoteHasContent, quoteSubtotal, quoteTotal, quoteVat } from "./lib/quote-calc";
@@ -30,6 +30,7 @@ import { sendQuoteDocuments } from "./lib/document-email";
 import { DocumentRenderStage } from "./components/DocumentRenderStage";
 import { hasPaymentAccount, paymentAccountText } from "./lib/payment-account";
 import { sendUnpaidNotice } from "./lib/unpaid-notice";
+import { SupportCenter } from "./components/SupportCenter";
 
 type WorkspaceAppProps = {
   data: AppData;
@@ -62,6 +63,7 @@ function WorkspaceApp({
   const [issueQuoteId, setIssueQuoteId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [approvingQuoteId, setApprovingQuoteId] = useState("");
+  const [supportOpen, setSupportOpen] = useState(false);
   const approvingIds = useRef(new Set<string>());
 
   const activeQuote = data.quotes.find((quote) => quote.id === activeQuoteId) ?? (view === "quote" ? draftQuote : data.quotes[0] ?? draftQuote);
@@ -664,6 +666,9 @@ function WorkspaceApp({
                 </button>
               </div>
             )}
+            <button type="button" className="ghost support-open" onClick={() => setSupportOpen(true)}>
+              <CircleHelp size={17} /> 고객센터
+            </button>
             <div className="account-strip">
               <button
                 type="button"
@@ -764,6 +769,13 @@ function WorkspaceApp({
         supplier={data.taxApiIntegration}
         logo={data.logoDataUrl}
         workspaceProfile={data.workspaceProfile}
+      />
+      <SupportCenter
+        open={supportOpen}
+        userEmail={userEmail}
+        workspaceName={workspaceName}
+        currentView={nav.find((item) => item.id === view)?.label ?? "업무 화면"}
+        onClose={() => setSupportOpen(false)}
       />
     </div>
   );

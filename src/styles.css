@@ -1482,6 +1482,397 @@ main > .grid.two {
   flex: 0 0 auto;
 }
 
+.support-open {
+  flex: 0 0 auto;
+}
+
+.support-backdrop {
+  position: fixed;
+  z-index: 300;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgb(15 23 42 / 48%);
+}
+
+.support-dialog {
+  width: min(820px, 100%);
+  max-height: min(760px, calc(100vh - 40px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #d8e0ea;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 24px 70px rgb(15 23 42 / 24%);
+}
+
+.support-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  padding: 18px 20px;
+  border-bottom: 1px solid #e5eaf2;
+}
+
+.support-head-icon {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: #edf3fb;
+  color: #4f6fae;
+}
+
+.support-head h2,
+.support-head p,
+.support-ticket-detail h3,
+.support-ticket-detail p {
+  margin: 0;
+}
+
+.support-head h2 {
+  font-size: 18px;
+}
+
+.support-head p {
+  margin-top: 2px;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.support-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 8px 20px 0;
+  border-bottom: 1px solid #e5eaf2;
+}
+
+.support-tabs button {
+  min-height: 39px;
+  padding: 8px 12px;
+  border-radius: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: #64748b;
+}
+
+.support-tabs button.active {
+  border-bottom-color: #4f6fae;
+  color: #31588f;
+}
+
+.support-tabs button span {
+  min-width: 20px;
+  height: 20px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: #eef3fb;
+  color: #31588f;
+  font-size: 11px;
+}
+
+.support-feedback {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 14px 20px 0;
+  padding: 9px 11px;
+  border: 1px solid;
+  border-radius: 7px;
+  font-size: 13px;
+}
+
+.support-feedback.success {
+  border-color: #bdddcf;
+  background: #eff9f4;
+  color: #236749;
+}
+
+.support-feedback.error {
+  border-color: #efc9c6;
+  background: #fff4f3;
+  color: #a73732;
+}
+
+.support-form {
+  display: grid;
+  gap: 14px;
+  padding: 18px 20px 20px;
+  overflow: auto;
+}
+
+.support-form-row {
+  display: grid;
+  grid-template-columns: minmax(0, 0.78fr) minmax(0, 1.22fr);
+  gap: 12px;
+}
+
+.support-form label:not(.support-context-toggle) {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.support-form label > span {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.support-form label > span small {
+  color: #8a97a8;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.support-form input,
+.support-form select,
+.support-form textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #cfd8e5;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #1e293b;
+}
+
+.support-form input,
+.support-form select {
+  min-height: 39px;
+  padding: 7px 10px;
+}
+
+.support-form input[readonly] {
+  background: #f6f8fb;
+  color: #64748b;
+}
+
+.support-form textarea {
+  min-height: 150px;
+  padding: 10px;
+  resize: vertical;
+  line-height: 1.55;
+}
+
+.support-context-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 11px 12px;
+  border: 1px solid #dfe6ef;
+  border-radius: 7px;
+  background: #f8fafc;
+  cursor: pointer;
+}
+
+.support-context-toggle input {
+  width: 16px;
+  height: 16px;
+  min-height: 0;
+  margin: 2px 0 0;
+}
+
+.support-context-toggle > span {
+  display: grid !important;
+  gap: 2px !important;
+}
+
+.support-context-toggle strong {
+  color: #334155;
+  font-size: 13px;
+}
+
+.support-context-toggle small {
+  color: #64748b !important;
+  font-size: 12px !important;
+}
+
+.support-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.support-actions > small {
+  color: #7b8798;
+  font-size: 11px;
+}
+
+.support-history {
+  min-height: 360px;
+  display: grid;
+  grid-template-columns: minmax(240px, 0.74fr) minmax(0, 1.26fr);
+  overflow: hidden;
+}
+
+.support-empty {
+  grid-column: 1 / -1;
+  min-height: 330px;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 8px;
+  padding: 30px;
+  color: #64748b;
+  text-align: center;
+}
+
+.support-empty strong {
+  color: #334155;
+}
+
+.support-ticket-list {
+  max-height: 500px;
+  overflow: auto;
+  border-right: 1px solid #e5eaf2;
+  background: #f8fafc;
+}
+
+.support-ticket-list > button {
+  width: 100%;
+  min-height: 84px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  justify-content: stretch;
+  align-content: center;
+  gap: 4px 8px;
+  padding: 13px 15px;
+  border-radius: 0;
+  border-bottom: 1px solid #e5eaf2;
+  background: transparent;
+  color: #334155;
+  text-align: left;
+}
+
+.support-ticket-list > button.active {
+  background: #ffffff;
+  box-shadow: inset 3px 0 #4f6fae;
+}
+
+.support-ticket-list strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.support-ticket-list small {
+  grid-column: 2;
+  color: #7b8798;
+  font-size: 11px;
+}
+
+.support-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 22px;
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: #edf1f5;
+  color: #526172;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.support-status.in_progress {
+  background: #fff4d8;
+  color: #906216;
+}
+
+.support-status.answered {
+  background: #e6f5ee;
+  color: #257257;
+}
+
+.support-status.closed {
+  background: #eef1f5;
+  color: #697586;
+}
+
+.support-ticket-detail {
+  min-width: 0;
+  overflow: auto;
+  padding: 20px;
+}
+
+.support-detail-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #e5eaf2;
+}
+
+.support-detail-head > div > span {
+  color: #5b72a8;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.support-detail-head h3 {
+  margin-top: 3px;
+  font-size: 16px;
+}
+
+.support-ticket-message {
+  min-height: 90px;
+  padding: 16px 0;
+  color: #334155;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.support-ticket-date {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #7b8798;
+  font-size: 11px;
+}
+
+.support-reply {
+  display: grid;
+  gap: 6px;
+  margin-top: 16px;
+  padding: 14px;
+  border-left: 3px solid #cad4e2;
+  background: #f6f8fb;
+}
+
+.support-reply.answered {
+  border-left-color: #3b8a6d;
+  background: #f1f8f5;
+}
+
+.support-reply strong {
+  color: #334155;
+  font-size: 13px;
+}
+
+.support-reply p {
+  color: #526172;
+  white-space: pre-wrap;
+}
+
+.support-reply small {
+  color: #7b8798;
+  font-size: 11px;
+}
+
 .topbar p,
 .section-title p {
   margin: 0 0 4px;
@@ -4689,6 +5080,21 @@ button.kpi.active {
 }
 
 @media (max-width: 700px) {
+  .support-form-row,
+  .support-history {
+    grid-template-columns: 1fr;
+  }
+
+  .support-ticket-list {
+    max-height: 210px;
+    border-right: 0;
+    border-bottom: 1px solid #e5eaf2;
+  }
+
+  .support-ticket-detail {
+    min-height: 280px;
+  }
+
   .app {
     grid-template-columns: 188px minmax(0, 1fr);
   }
@@ -4914,6 +5320,54 @@ button.kpi.active {
 }
 
 @media (max-width: 480px) {
+  .support-backdrop {
+    padding: 0;
+  }
+
+  .support-dialog {
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .support-head {
+    padding: 14px;
+  }
+
+  .support-head-icon {
+    display: none;
+  }
+
+  .support-tabs {
+    padding-inline: 14px;
+  }
+
+  .support-feedback {
+    margin-inline: 14px;
+  }
+
+  .support-form {
+    padding: 16px 14px 20px;
+  }
+
+  .support-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .support-actions button {
+    width: 100%;
+    min-height: 42px;
+  }
+
+  .support-history {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+  }
+
   .app {
     display: block;
     padding-bottom: 64px;
