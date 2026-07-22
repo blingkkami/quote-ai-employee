@@ -72,9 +72,9 @@ async function issueCashbill(body, connection, response) {
   const supplierCorpNum = onlyDigits(connection.corp_num);
   const cashbillMgtKey = `C${String(quoteId).replace(/[^A-Za-z0-9_-]/g, "-")}`.slice(0, 24);
   const totalAmount = Math.round(Number(total));
-  // Cash receipts are issued 과세 by default; split VAT out of the tax-inclusive total.
-  const supplyCost = Math.round(totalAmount / 1.1);
-  const tax = totalAmount - supplyCost;
+  const taxExempt = customer.taxExempt === true;
+  const supplyCost = taxExempt ? totalAmount : Math.round(totalAmount / 1.1);
+  const tax = taxExempt ? 0 : totalAmount - supplyCost;
   const now = new Date();
   const tradeDT = `${writeDateDigits}${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
 
@@ -82,7 +82,7 @@ async function issueCashbill(body, connection, response) {
     mgtKey: cashbillMgtKey,
     tradeType: "승인거래",
     tradeUsage: usage === "지출증빙" ? "지출증빙용" : "소득공제용",
-    taxationType: "과세",
+    taxationType: taxExempt ? "비과세" : "과세",
     tradeDT,
     identityNum,
     franchiseCorpNum: supplierCorpNum,

@@ -5,6 +5,7 @@ export type IssueCashbillCustomer = {
   businessNumber?: string;
   phone?: string;
   email?: string;
+  taxExempt?: boolean;
 };
 
 export type IssueCashbillPayload = {

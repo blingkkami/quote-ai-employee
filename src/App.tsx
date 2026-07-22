@@ -271,7 +271,8 @@ function WorkspaceApp({
               name: cashCustomer.name,
               businessNumber: cashCustomer.businessNumber,
               phone: cashCustomer.contact,
-              email: cashCustomer.email
+              email: cashCustomer.email,
+              taxExempt: cashCustomer.taxExempt
             }
           });
           next = applyCashPatch(next, {

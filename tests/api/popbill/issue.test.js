@@ -78,6 +78,23 @@ describe("Popbill cash receipt via issue handler (documentType: cash)", () => {
     expect(response.body).toMatchObject({ ok: true, cashReceiptStatus: "issued" });
   });
 
+  it("issues a tax-exempt cash receipt as 비과세 with zero VAT", async () => {
+    Object.assign(process.env, { POPBILL_LINK_ID: "link", POPBILL_SECRET_KEY: "secret" });
+    mocks.cashRegistIssue.mockImplementation((...args) => args[5]({ confirmNum: "cash-2" }));
+    const { default: handler } = await import("../../../api/popbill/issue.js");
+    const response = makeResponse();
+    await handler({
+      method: "POST",
+      body: { ...cashPayload, customer: { ...cashPayload.customer, taxExempt: true } }
+    }, response);
+    const cashbill = mocks.cashRegistIssue.mock.calls[0][1];
+    expect(cashbill.taxationType).toBe("비과세");
+    expect(cashbill.supplyCost).toBe("110000");
+    expect(cashbill.tax).toBe("0");
+    expect(cashbill.totalAmount).toBe("110000");
+    expect(response.body).toMatchObject({ ok: true, cashReceiptStatus: "issued" });
+  });
+
   it("rejects 지출증빙 without a business number", async () => {
     Object.assign(process.env, { POPBILL_LINK_ID: "link", POPBILL_SECRET_KEY: "secret" });
     const { default: handler } = await import("../../../api/popbill/issue.js");
