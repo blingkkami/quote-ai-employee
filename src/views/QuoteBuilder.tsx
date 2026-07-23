@@ -228,7 +228,7 @@ export function QuoteBuilder({
             <div className="item-row" key={item.id}>
               <input aria-label={`항목 ${index + 1} 구분`} list="quote-category-suggestions" placeholder="구분" value={item.category} onChange={(event) => updateItem(item.id, { category: event.target.value })} />
               <input aria-label={`항목 ${index + 1} 내용`} list="quote-description-suggestions" placeholder="내용" value={item.description} onChange={(event) => updateItem(item.id, { description: event.target.value })} />
-              <input aria-label={`항목 ${index + 1} 금액`} type="number" min="0" value={item.price || ""} onChange={(event) => updateItem(item.id, { price: Number(event.target.value) })} />
+              <input aria-label={`항목 ${index + 1} 금액`} placeholder="금액(원)" inputMode="numeric" type="number" min="0" value={item.price || ""} onChange={(event) => updateItem(item.id, { price: Number(event.target.value) })} />
               <button
                 className="icon"
                 title="항목 삭제"
