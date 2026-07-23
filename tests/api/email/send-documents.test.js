@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ maybeSingle: vi.fn(), sendConnectedEmail: vi.fn() }));
+vi.mock("../../../server/billing/service.js", () => ({
+  authorizeBillingActions: async (_client, actions) => ({ ok: true, approved: actions }),
+  reverseBillingActions: async () => {},
+  requiredBillingReference: (value) => value
+}));
 vi.mock("../../../server/popbill/auth.js", () => ({
   authorizeRequest: async () => ({
     user: { id: "user-1" },
@@ -19,7 +24,12 @@ const appData = {
   taxApiIntegration: { corpName: "공급자", contactEmail: "reply@example.com" }
 };
 const pdf = "JVBERi0xLjQK";
-const body = { quoteId: "quote-1", recipient: "client@example.com", attachments: [{ filename: "견적서.pdf", content: pdf }, { filename: "거래명세서.pdf", content: pdf }] };
+const body = {
+  quoteId: "quote-1",
+  recipient: "client@example.com",
+  billingReferences: { quote_pdf: "pdf-1", transaction_statement: "statement-1", email: "email-1" },
+  attachments: [{ filename: "견적서.pdf", content: pdf }, { filename: "거래명세서.pdf", content: pdf }]
+};
 const makeResponse = () => ({ statusCode: 200, body: null, status(code) { this.statusCode = code; return this; }, setHeader() {}, json(value) { this.body = value; return this; } });
 
 beforeEach(() => {

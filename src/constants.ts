@@ -3,6 +3,7 @@ import {
   BarChart3,
   Building2,
   ClipboardList,
+  CreditCard,
   FileText,
   HandCoins,
   ReceiptText,
@@ -12,7 +13,7 @@ import {
 } from "lucide-react";
 import type { InvoicePreference, PaymentStatus, QuoteStatus } from "./types";
 
-export type View = "quote" | "quotes" | "issue" | "customers" | "vendors" | "ledger" | "items" | "dashboard" | "settings";
+export type View = "quote" | "quotes" | "issue" | "customers" | "vendors" | "ledger" | "items" | "dashboard" | "billing" | "settings";
 
 export const nav: { id: View; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
   { id: "quote", label: "견적 생성", icon: FileText },
@@ -23,6 +24,7 @@ export const nav: { id: View; label: string; icon: React.ComponentType<{ size?: 
   { id: "ledger", label: "거래처 원장", icon: HandCoins },
   { id: "items", label: "품목 현황", icon: Settings2 },
   { id: "dashboard", label: "대시보드", icon: BarChart3 },
+  { id: "billing", label: "요금·크레딧", icon: CreditCard },
   { id: "settings", label: "설정", icon: Settings }
 ];
 

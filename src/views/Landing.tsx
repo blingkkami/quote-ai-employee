@@ -15,6 +15,8 @@ import {
   Stamp,
   Users
 } from "lucide-react";
+import { useState } from "react";
+import { billingPlans, creditPackages, formatWon, planFeatureAccess, type BillableFeature } from "../lib/billing-plans";
 
 const workflow = [
   { number: "01", title: "견적 작성", body: "고객과 항목을 입력하면 문서가 실시간으로 완성됩니다." },
@@ -72,7 +74,36 @@ const faqs = [
   }
 ];
 
+const featureRows: { key: BillableFeature; label: string; credit?: string }[] = [
+  { key: "customerManagement", label: "고객관리" },
+  { key: "quoteDrafting", label: "견적서 작성·저장" },
+  { key: "businessSettings", label: "사업장 설정" },
+  { key: "businessStatusCheck", label: "사업자등록상태조회", credit: "0cr" },
+  { key: "taxInvoice", label: "전자세금계산서 발행", credit: "2cr" },
+  { key: "quotePdf", label: "견적서 PDF 발행·발송", credit: "1cr" },
+  { key: "transactionStatement", label: "거래명세서 발행", credit: "1cr" },
+  { key: "email", label: "메일 발송", credit: "1cr" },
+  { key: "unpaidNotice", label: "미수금 안내", credit: "1cr" },
+  { key: "ledger", label: "원장" },
+  { key: "receivablesAndPurchases", label: "미수·매입 관리" },
+  { key: "operationsDashboard", label: "운영 현황" }
+];
+
+const accessText = (feature: BillableFeature, planId: "free" | "starter" | "pro50") => {
+  const access = planFeatureAccess[planId][feature];
+  if (feature === "taxInvoice" && planId === "starter") return "월 10건";
+  if (feature === "taxInvoice" && planId === "pro50") return "월 50/100건";
+  if (access === "credit") return featureRows.find((row) => row.key === feature)?.credit ?? "크레딧";
+  if (access === "unlimited") return "무제한";
+  if (access === "blocked") return "—";
+  return "포함";
+};
+
 export function Landing({ onStart }: { onStart: () => void }) {
+  const [proInvoiceLimit, setProInvoiceLimit] = useState<50 | 100>(50);
+  const proPlan = billingPlans.find((plan) => plan.id === (proInvoiceLimit === 50 ? "pro50" : "pro100"))!;
+  const starterPlan = billingPlans.find((plan) => plan.id === "starter")!;
+
   return (
     <div className="landing landing-sales">
       <header className="landing-nav-shell">
@@ -84,6 +115,7 @@ export function Landing({ onStart }: { onStart: () => void }) {
           <div className="landing-nav-links">
             <a href="#workflow">업무 흐름</a>
             <a href="#features">주요 기능</a>
+            <a href="#pricing">요금제</a>
             <a href="#setup">연결 설정</a>
             <a href="#faq">자주 묻는 질문</a>
           </div>
@@ -182,6 +214,81 @@ export function Landing({ onStart }: { onStart: () => void }) {
                 </article>
               );
             })}
+          </div>
+        </section>
+
+        <section className="landing-pricing" id="pricing">
+          <div className="landing-section-heading">
+            <p>필요한 만큼만 선택</p>
+            <h2>무료로 시작하고, 관리가 필요할 때 정액권으로</h2>
+            <span>초과 발행은 자동 결제되지 않습니다. 필요한 크레딧을 직접 구매해 사용합니다.</span>
+          </div>
+          <div className="pricing-grid">
+            <article className="pricing-card">
+              <div className="pricing-card-head"><span>가볍게 시작</span><h3>무료 + 크레딧</h3></div>
+              <strong className="pricing-price">0원<small>/월</small></strong>
+              <p>고객관리와 견적서 작성은 무료입니다. 발행·발송할 때만 크레딧을 사용합니다.</p>
+              <ul>
+                <li><Check size={16} /> 신규 가입 3크레딧</li>
+                <li><Check size={16} /> 세금계산서 2크레딧/건</li>
+                <li><Check size={16} /> PDF·메일·미수안내 1크레딧/건</li>
+              </ul>
+              <button className="pricing-secondary" onClick={onStart}>무료로 시작</button>
+            </article>
+            <article className="pricing-card">
+              <div className="pricing-card-head"><span>기본 관리</span><h3>{starterPlan.name}</h3></div>
+              <strong className="pricing-price">{formatWon(starterPlan.monthlyPrice)}<small>/월</small></strong>
+              <p>월 {starterPlan.includedTaxInvoices}건의 세금계산서와 반복 발행·발송 업무를 묶었습니다.</p>
+              <ul>
+                <li><Check size={16} /> 세금계산서 월 10건 포함</li>
+                <li><Check size={16} /> PDF·거래명세서·메일 무제한</li>
+                <li><Check size={16} /> 원장·미수·매입 관리</li>
+              </ul>
+              <button className="pricing-secondary" onClick={onStart}>입문 시작하기</button>
+            </article>
+            <article className="pricing-card featured">
+              <div className="pricing-popular">추천</div>
+              <div className="pricing-card-head">
+                <span>운영까지 한눈에</span><h3>Pro</h3>
+                <div className="pricing-toggle" aria-label="Pro 세금계산서 포함 건수">
+                  <button className={proInvoiceLimit === 50 ? "active" : ""} onClick={() => setProInvoiceLimit(50)}>50건</button>
+                  <button className={proInvoiceLimit === 100 ? "active" : ""} onClick={() => setProInvoiceLimit(100)}>100건</button>
+                </div>
+              </div>
+              <strong className="pricing-price">{formatWon(proPlan.monthlyPrice)}<small>/월</small></strong>
+              <p>Pro 기능은 동일하고 세금계산서 포함 건수만 선택합니다.</p>
+              <ul>
+                <li><Check size={16} /> 세금계산서 월 {proPlan.includedTaxInvoices}건 포함</li>
+                <li><Check size={16} /> 입문 플랜의 모든 기능</li>
+                <li><Check size={16} /> 운영 현황 대시보드</li>
+              </ul>
+              <button onClick={onStart}>Pro 시작하기</button>
+            </article>
+          </div>
+          <div className="credit-pricing">
+            <div><strong>크레딧 추가 구매</strong><span>정액권 포함 건수를 넘겨도 자동 과금되지 않습니다.</span></div>
+            <div className="credit-package-list">
+              {creditPackages.map((item) => (
+                <span key={item.id}><b>{item.credits}cr</b>{formatWon(item.price)}<small>{Math.round(item.price / item.credits).toLocaleString("ko-KR")}원/cr</small></span>
+              ))}
+            </div>
+          </div>
+          <div className="pricing-comparison">
+            <div className="pricing-comparison-head">
+              <div><strong>기능별 사용 범위</strong><span>무료 사용과 크레딧 차감, 요금제 포함 범위를 모두 비교하세요.</span></div>
+              <span>무료 + 크레딧</span><span>입문</span><span>Pro</span>
+            </div>
+            {featureRows.map((row) => (
+              <div className="pricing-comparison-row" key={row.key}>
+                <strong>{row.label}</strong>
+                {(["free", "starter", "pro50"] as const).map((planId) => (
+                  <span key={planId} className={planFeatureAccess[planId][row.key] === "blocked" ? "blocked" : ""}>
+                    {accessText(row.key, planId)}
+                  </span>
+                ))}
+              </div>
+            ))}
+            <p>포함 건수를 모두 사용하면 발행을 잠시 멈추고 크레딧 구매를 안내합니다. 사용자 동의 없는 자동 초과 결제는 하지 않습니다.</p>
           </div>
         </section>
 

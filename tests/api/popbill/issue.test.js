@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ config: vi.fn(), registIssue: vi.fn(), cashRegistIssue: vi.fn(), getUserConnection: vi.fn() }));
+vi.mock("../../../server/billing/service.js", () => ({
+  authorizeBillingActions: async (_client, actions) => ({ ok: true, approved: actions }),
+  reverseBillingActions: async () => {},
+  requiredBillingReference: (value) => value
+}));
 vi.mock("popbill", () => ({
   default: {
     config: mocks.config,
@@ -16,7 +21,7 @@ vi.mock("../../../server/popbill/auth.js", () => ({
 const envKeys = ["POPBILL_CONFIG", "POPBILL_LINK_ID", "POPBILL_SECRET_KEY", "POPBILL_IS_TEST"];
 const originalEnv = Object.fromEntries(envKeys.map((key) => [key, process.env[key]]));
 const makeResponse = () => ({ statusCode: 200, body: null, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } });
-const payload = { quoteId: "quo_retry_safe_1", projectName: "테스트 견적", writeDate: "2026-07-14", supplyCost: 100000, tax: 10000, total: 110000, items: [{ name: "디자인", supplyCost: 100000, tax: 10000 }], customer: { businessNumber: "123-45-67890", name: "테스트 고객" }, taxInvoiceMemo: "7월 말까지 입금 요청", paymentAccount: { bankName: "국민은행", accountNumber: "123-456", accountHolder: "공급자" } };
+const payload = { billingReference: "tax-invoice-1", quoteId: "quo_retry_safe_1", projectName: "테스트 견적", writeDate: "2026-07-14", supplyCost: 100000, tax: 10000, total: 110000, items: [{ name: "디자인", supplyCost: 100000, tax: 10000 }], customer: { businessNumber: "123-45-67890", name: "테스트 고객" }, taxInvoiceMemo: "7월 말까지 입금 요청", paymentAccount: { bankName: "국민은행", accountNumber: "123-456", accountHolder: "공급자" } };
 const cashPayload = { documentType: "cash", quoteId: "quo_cash_1", projectName: "테스트 견적", writeDate: "2026-07-14", total: 110000, customer: { name: "홍길동", phone: "010-1234-5678", email: "a@b.com" } };
 
 beforeEach(() => {

@@ -15,6 +15,7 @@ export type IssueTaxInvoiceCustomer = {
 };
 
 export type IssueTaxInvoicePayload = {
+  billingReference: string;
   quoteId: string;
   projectName: string;
   writeDate: string;

@@ -21,7 +21,7 @@ async function readResult(response: Response): Promise<EmailConnectionStatus & {
 }
 
 export async function getEmailConnectionStatus() {
-  return readResult(await authorizedFetch("/api/email/status"));
+  return readResult(await authorizedFetch("/api/email/connect"));
 }
 
 export async function startEmailOAuth(provider: "google" | "microsoft") {
@@ -44,10 +44,10 @@ export async function connectSmtpEmail(input: {
   port?: number;
   secure?: boolean;
 }) {
-  return readResult(await authorizedFetch("/api/email/smtp-connect", {
+  return readResult(await authorizedFetch("/api/email/connect", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input)
+    body: JSON.stringify({ mode: "smtp", ...input })
   }));
 }
 

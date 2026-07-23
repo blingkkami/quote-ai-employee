@@ -1,5 +1,6 @@
 import { authorizeRequest } from "../../server/popbill/auth.js";
 import { requireEmailAdmin, sendConnectedEmail } from "../../server/email/service.js";
+import { authorizeBillingActions, requiredBillingReference, reverseBillingActions } from "../../server/billing/service.js";
 
 const escapeHtml = (value) => String(value ?? "")
   .replace(/&/g, "&amp;")
@@ -21,6 +22,7 @@ export default async function handler(request, response) {
 
   const auth = await authorizeRequest(request, response);
   if (!auth) return;
+  let billingApproval;
 
   try {
     let body = request.body || {};
@@ -80,6 +82,14 @@ export default async function handler(request, response) {
       response.status(409).json({ ok: false, message: "설정에서 미수금 안내용 입금계좌를 등록하고 표시를 켜 주세요." });
       return;
     }
+    billingApproval = await authorizeBillingActions(auth.client, [{
+      feature: "unpaid_notice",
+      referenceId: requiredBillingReference(body.billingReference, "미수금 안내")
+    }]);
+    if (!billingApproval.ok) {
+      response.status(402).json({ ok: false, message: billingApproval.message });
+      return;
+    }
 
     const supplierName = String(profile.businessName || appData.taxApiIntegration?.corpName || "공급자").trim();
     const tableRows = rows.map((row) => `<tr><td style="padding:10px;border-bottom:1px solid #e5e7eb">${escapeHtml(row.date || "-")}</td><td style="padding:10px;border-bottom:1px solid #e5e7eb">${escapeHtml(row.projectName)}</td><td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:right">${won(row.saleAmount)}원</td><td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:right">${won(row.paidAmount)}원</td><td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:right;font-weight:700;color:#b42318">${won(row.balance)}원</td></tr>`).join("");
@@ -99,6 +109,7 @@ export default async function handler(request, response) {
       message: `${delivery.sender}에서 ${recipient}로 미수금 안내를 발송했습니다.`
     });
   } catch (error) {
+    if (billingApproval?.approved) await reverseBillingActions(auth.client, billingApproval.approved);
     response.status(500).json({ ok: false, message: error instanceof Error ? error.message : String(error) });
   }
 }

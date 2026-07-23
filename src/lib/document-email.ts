@@ -19,7 +19,11 @@ async function waitForDocument(selector: string, timeout = 2500): Promise<HTMLEl
   return null;
 }
 
-export async function sendQuoteDocuments(quote: QuoteRecord, customer: CustomerSnapshot): Promise<DocumentEmailResult> {
+export async function sendQuoteDocuments(
+  quote: QuoteRecord,
+  customer: CustomerSnapshot,
+  billingReferences?: Partial<Record<"quote_pdf" | "transaction_statement" | "email", string>>
+): Promise<DocumentEmailResult> {
   const recipient = customer.email?.trim();
   if (!recipient) return { ok: false, message: "고객 이메일이 없어 문서를 자동 발송하지 못했습니다." };
 
@@ -48,6 +52,7 @@ export async function sendQuoteDocuments(quote: QuoteRecord, customer: CustomerS
       recipient,
       projectName: quote.form.projectName,
       customerName: customer.name,
+      billingReferences,
       attachments
     })
   });

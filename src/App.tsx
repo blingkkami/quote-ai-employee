@@ -1,5 +1,5 @@
-import { useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
-import { CircleHelp, Cloud, Info, LogOut, Plus, Printer, UserRound } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { CircleHelp, Cloud, Info, LockKeyhole, LogOut, Plus, Printer, UserRound } from "lucide-react";
 import type { AppData, QuoteRecord, SaleRecord, TaxApiIntegration } from "./types";
 import { emptyQuote } from "./data/quote-defaults";
 import { quoteHasContent, quoteSubtotal, quoteTotal, quoteVat } from "./lib/quote-calc";
@@ -31,10 +31,17 @@ import { DocumentRenderStage } from "./components/DocumentRenderStage";
 import { hasPaymentAccount, paymentAccountText } from "./lib/payment-account";
 import { sendUnpaidNotice } from "./lib/unpaid-notice";
 import { SupportCenter } from "./components/SupportCenter";
+import { BILLING_ENABLED, canOpenView } from "./lib/billing-plans";
+import { useBillingAccount } from "./hooks/useBillingAccount";
+import type { BillingProfile } from "./types";
+import { authorizeBillingAction, grantSignupCredits, reverseBillingAction, type BillableAction } from "./lib/billing";
+import { BillingView } from "./views/BillingView";
+import { completeRedirectedCheckout } from "./lib/billing-checkout";
 
 type WorkspaceAppProps = {
   data: AppData;
   setData: Dispatch<SetStateAction<AppData>>;
+  userId: string;
   userEmail: string;
   syncState: SyncState;
   syncError: string;
@@ -43,11 +50,14 @@ type WorkspaceAppProps = {
   onPersistData: (data: AppData) => Promise<void>;
   onSignOut: () => Promise<void>;
   onShowLanding: () => void;
+  billing: BillingProfile;
+  onBillingRefresh: () => Promise<void>;
 };
 
 function WorkspaceApp({
   data,
   setData,
+  userId,
   userEmail,
   syncState,
   syncError,
@@ -55,7 +65,9 @@ function WorkspaceApp({
   onRetrySync,
   onPersistData,
   onSignOut,
-  onShowLanding
+  onShowLanding,
+  billing,
+  onBillingRefresh
 }: WorkspaceAppProps) {
   const [view, setView] = useState<View>(() => new URLSearchParams(window.location.search).has("email_connection") ? "settings" : "quote");
   const [draftQuote, setDraftQuote] = useState<QuoteRecord>(() => emptyQuote());
@@ -65,6 +77,41 @@ function WorkspaceApp({
   const [approvingQuoteId, setApprovingQuoteId] = useState("");
   const [supportOpen, setSupportOpen] = useState(false);
   const approvingIds = useRef(new Set<string>());
+  const effectivePlanId = billing.status === "active" ? billing.planId : "free";
+
+  const authorizeBundle = async (features: BillableAction[], actionId: string) => {
+    // 안전 모드: 과금 DB를 호출하지 않고 참조번호만 만들어 통과시킨다(모든 기능 무료).
+    if (!BILLING_ENABLED) {
+      return features.map((feature) => ({ feature, referenceId: `${actionId}:${feature}` }));
+    }
+    const approved: { feature: BillableAction; referenceId: string }[] = [];
+    try {
+      for (const feature of features) {
+        const referenceId = `${actionId}:${feature}`;
+        const result = await authorizeBillingAction(feature, referenceId);
+        if (!result.allowed) {
+          await Promise.allSettled(approved.map((item) => reverseBillingAction(item.feature, item.referenceId)));
+          window.alert(result.message);
+          await onBillingRefresh();
+          return null;
+        }
+        approved.push({ feature, referenceId });
+      }
+      await onBillingRefresh();
+      return approved;
+    } catch (error) {
+      await Promise.allSettled(approved.map((item) => reverseBillingAction(item.feature, item.referenceId)));
+      window.alert(`요금제 사용 승인을 확인하지 못했습니다. ${error instanceof Error ? error.message : String(error)}`);
+      await onBillingRefresh();
+      return null;
+    }
+  };
+
+  const reverseBundle = async (approved: { feature: BillableAction; referenceId: string }[]) => {
+    if (!BILLING_ENABLED) return; // 안전 모드: 되돌릴 과금이 없음
+    await Promise.allSettled(approved.map((item) => reverseBillingAction(item.feature, item.referenceId)));
+    await onBillingRefresh();
+  };
 
   const activeQuote = data.quotes.find((quote) => quote.id === activeQuoteId) ?? (view === "quote" ? draftQuote : data.quotes[0] ?? draftQuote);
 
@@ -230,8 +277,24 @@ function WorkspaceApp({
 
     if (data.documentEmailSettings.autoSendOnApproval && quote.documentEmailStatus !== "sent" && approved.customerSnapshot) {
       let emailPatch: Partial<QuoteRecord>;
+      const billingApproval = await authorizeBundle(
+        ["quote_pdf", "transaction_statement", "email"],
+        `approval-email:${quote.id}:${crypto.randomUUID()}`
+      );
+      if (!billingApproval) {
+        emailPatch = { documentEmailStatus: "failed", documentEmailNote: "크레딧 또는 요금제 사용 범위를 확인해 주세요." };
+        workingData = {
+          ...workingData,
+          quotes: workingData.quotes.map((item) => item.id === quote.id ? { ...item, ...emailPatch } : item)
+        };
+        await onPersistData(workingData).catch(() => undefined);
+      } else {
       try {
-        const emailResult = await sendQuoteDocuments(approved, approved.customerSnapshot);
+        const emailResult = await sendQuoteDocuments(
+          approved,
+          approved.customerSnapshot,
+          Object.fromEntries(billingApproval.map((item) => [item.feature, item.referenceId]))
+        );
         emailPatch = emailResult.ok
           ? {
               documentEmailStatus: "sent",
@@ -241,14 +304,17 @@ function WorkspaceApp({
               documentEmailNote: emailResult.message
             }
           : { documentEmailStatus: "failed", documentEmailNote: emailResult.message };
+        if (!emailResult.ok) await reverseBundle(billingApproval);
       } catch (error) {
         emailPatch = { documentEmailStatus: "failed", documentEmailNote: error instanceof Error ? error.message : String(error) };
+        await reverseBundle(billingApproval);
       }
       workingData = {
         ...workingData,
         quotes: workingData.quotes.map((item) => item.id === quote.id ? { ...item, ...emailPatch } : item)
       };
       await onPersistData(workingData).catch(() => undefined);
+      }
     }
 
     // 현금영수증은 세금계산서와 독립적으로 발행된다(자동 발행 설정일 때만 실제 호출).
@@ -313,7 +379,21 @@ function WorkspaceApp({
       return;
     }
 
+    const taxBillingReference = `tax-invoice:${quote.id}`;
+    const taxBilling = await authorizeBundle(["tax_invoice"], taxBillingReference);
+    if (!taxBilling) {
+      workingData = {
+        ...workingData,
+        quotes: workingData.quotes.map((item) => item.id === quote.id
+          ? { ...item, invoiceStatus: "failed", invoiceNote: "포함 건수 또는 크레딧이 부족해 발행을 중단했습니다." }
+          : item)
+      };
+      await finishApproval(workingData);
+      return;
+    }
+
     const result = await issueTaxInvoice({
+      billingReference: taxBilling[0].referenceId,
       quoteId: quote.id,
       projectName: quote.form.projectName,
       writeDate: approved.invoiceDate || today(),
@@ -343,6 +423,7 @@ function WorkspaceApp({
           }
         : undefined
     });
+    if (!result.ok) await reverseBundle(taxBilling);
 
     workingData = {
       ...workingData,
@@ -371,6 +452,11 @@ function WorkspaceApp({
       window.alert("고객 이메일을 먼저 등록해 주세요.");
       return;
     }
+    const billingApproval = await authorizeBundle(
+      ["quote_pdf", "transaction_statement", "email"],
+      `document-email:${quote.id}:${crypto.randomUUID()}`
+    );
+    if (!billingApproval) return;
     approvingIds.current.add(quote.id);
     setApprovingQuoteId(quote.id);
     const sendingData: AppData = {
@@ -380,7 +466,12 @@ function WorkspaceApp({
     setData(sendingData);
     try {
       await onPersistData(sendingData);
-      const result = await sendQuoteDocuments(quote, customer);
+      const result = await sendQuoteDocuments(
+        quote,
+        customer,
+        Object.fromEntries(billingApproval.map((item) => [item.feature, item.referenceId]))
+      );
+      if (!result.ok) await reverseBundle(billingApproval);
       const nextData = {
         ...sendingData,
         quotes: sendingData.quotes.map((item) => item.id === quote.id ? {
@@ -394,6 +485,7 @@ function WorkspaceApp({
       };
       await onPersistData(nextData);
     } catch (error) {
+      await reverseBundle(billingApproval);
       const message = error instanceof Error ? error.message : String(error);
       setData((prev) => ({ ...prev, quotes: prev.quotes.map((item) => item.id === quote.id ? { ...item, documentEmailStatus: "failed", documentEmailNote: message } : item) }));
     } finally {
@@ -511,6 +603,11 @@ function WorkspaceApp({
         ? prev.workspaceProfile
         : { ...prev.workspaceProfile, businessName: taxApiIntegration.corpName.trim() }
     }));
+    if (taxApiIntegration.isConnected && taxApiIntegration.businessNumber) {
+      void grantSignupCredits(taxApiIntegration.businessNumber)
+        .then(() => onBillingRefresh())
+        .catch(() => undefined);
+    }
   };
 
   const handlePrint = async () => {
@@ -522,6 +619,8 @@ function WorkspaceApp({
       window.alert("견적 생성 화면에서 PDF를 다운로드해 주세요.");
       return;
     }
+    const billingApproval = await authorizeBundle(["quote_pdf"], `quote-pdf:${activeQuote.id}:${crypto.randomUUID()}`);
+    if (!billingApproval) return;
     const clone = paper.cloneNode(true) as HTMLElement;
     clone.style.position = "fixed";
     clone.style.left = "-10000px";
@@ -568,6 +667,7 @@ function WorkspaceApp({
       link.remove();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (error) {
+      await reverseBundle(billingApproval);
       window.alert(`PDF 생성에 실패했습니다. ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       clone.remove();
@@ -627,19 +727,27 @@ function WorkspaceApp({
         <nav>
           {nav.map((item) => {
             const Icon = item.icon;
+            const allowed = canOpenView(effectivePlanId, item.id);
             return (
               <button
                 key={item.id}
                 aria-label={item.label}
                 title={item.label}
-                className={view === item.id ? "active" : ""}
+                className={`${view === item.id ? "active" : ""} ${allowed ? "" : "plan-locked"}`}
                 onClick={() => {
+                  if (!allowed) {
+                    window.alert(item.id === "dashboard"
+                      ? "운영 현황은 Pro 요금제에서 사용할 수 있습니다."
+                      : "원장·미수·매입 관리 기능은 입문 이상 요금제에서 사용할 수 있습니다.");
+                    return;
+                  }
                   if (item.id === "issue") setIssueQuoteId(null);
                   setView(item.id);
                 }}
               >
                 <Icon size={18} />
-                <span>{item.label}</span>
+                  <span>{item.label}</span>
+                  {!allowed && <LockKeyhole size={13} aria-label="요금제 업그레이드 필요" />}
               </button>
             );
           })}
@@ -753,7 +861,16 @@ function WorkspaceApp({
             setData={setData}
             onSendUnpaidNotice={async (customerId) => {
               await onPersistData(data);
-              return sendUnpaidNotice(customerId);
+              const billingApproval = await authorizeBundle(["unpaid_notice"], `unpaid-notice:${customerId}:${crypto.randomUUID()}`);
+              if (!billingApproval) return { ok: false, message: "크레딧 또는 요금제 사용 범위를 확인해 주세요." };
+              try {
+                const result = await sendUnpaidNotice(customerId, billingApproval[0].referenceId);
+                if (!result.ok) await reverseBundle(billingApproval);
+                return result;
+              } catch (error) {
+                await reverseBundle(billingApproval);
+                throw error;
+              }
             }}
           />
         )}
@@ -761,6 +878,7 @@ function WorkspaceApp({
         {view === "ledger" && <Ledger data={data} onPayment={recordPayment} onPurchasePayment={recordPurchasePayment} />}
         {view === "items" && <ItemInsights data={data} />}
         {view === "dashboard" && <Dashboard data={data} totals={totals} />}
+        {view === "billing" && <BillingView billing={billing} userId={userId} onRefresh={onBillingRefresh} />}
         {view === "settings" && <SettingsView integration={data.taxApiIntegration} onChange={updateTaxApiIntegration} data={data} onRestore={setData} onDocumentEmailSettingsChange={(settings) => setData((prev) => ({ ...prev, documentEmailSettings: settings }))} onWorkspaceProfileChange={(workspaceProfile) => setData((prev) => ({ ...prev, workspaceProfile }))} onLogoChange={(logoDataUrl) => setData((prev) => ({ ...prev, logoDataUrl }))} />}
       </main>
       <DocumentRenderStage
@@ -782,9 +900,45 @@ function WorkspaceApp({
 }
 
 function App() {
-  const [showLanding, setShowLanding] = useState(() => !window.location.hash.includes("type=recovery") && !new URLSearchParams(window.location.search).has("email_connection"));
+  const [showLanding, setShowLanding] = useState(() => {
+    const query = new URLSearchParams(window.location.search);
+    return !window.location.hash.includes("type=recovery") && !query.has("email_connection") && !query.has("billing_return");
+  });
   const auth = useAuthSession();
   const cloud = useCloudAppData(auth.session?.user.id);
+  const billingAccount = useBillingAccount(auth.session?.user.id);
+  const checkoutReturnHandled = useRef(false);
+
+  useEffect(() => {
+    if (!auth.session) return;
+    const query = new URLSearchParams(window.location.search);
+    const orderId = query.get("orderId");
+    if (!query.has("billing_return") || !orderId || checkoutReturnHandled.current) return;
+    checkoutReturnHandled.current = true;
+    const redirectError = query.get("message");
+    const redirectErrorCode = query.get("code");
+    const checkoutType = query.get("checkoutType");
+    const billingKey = query.get("billingKey") || undefined;
+    if (redirectErrorCode || redirectError) {
+      window.alert(`결제가 완료되지 않았습니다. ${redirectError || redirectErrorCode}`);
+      window.history.replaceState({}, "", window.location.pathname);
+      return;
+    }
+    if (checkoutType === "subscription" && !billingKey) {
+      window.alert("정기결제 카드 등록 결과를 확인하지 못했습니다. 다시 시도해 주세요.");
+      window.history.replaceState({}, "", window.location.pathname);
+      return;
+    }
+    void completeRedirectedCheckout(orderId, billingKey)
+      .then(async (result) => {
+        await billingAccount.refresh();
+        window.alert(result.message || "결제가 완료되었습니다.");
+      })
+      .catch((error) => window.alert(error instanceof Error ? error.message : String(error)))
+      .finally(() => {
+        window.history.replaceState({}, "", window.location.pathname);
+      });
+  }, [auth.session, billingAccount.refresh]);
 
   if (showLanding) {
     return <Landing onStart={() => setShowLanding(false)} />;
@@ -826,6 +980,7 @@ function App() {
       <WorkspaceApp
         data={cloud.data}
         setData={cloud.setData}
+        userId={auth.session.user.id}
         userEmail={auth.session.user.email ?? "로그인 계정"}
         syncState={cloud.syncState}
         syncError={cloud.syncError}
@@ -834,6 +989,8 @@ function App() {
         onPersistData={cloud.persistNow}
         onSignOut={signOut}
         onShowLanding={() => setShowLanding(true)}
+        billing={billingAccount.billing}
+        onBillingRefresh={billingAccount.refresh}
       />
       {cloud.migrationData && (
         <DataMigrationPrompt data={cloud.migrationData} onImport={cloud.importLegacyData} onStartFresh={cloud.startFresh} />

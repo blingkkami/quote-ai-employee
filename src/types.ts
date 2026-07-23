@@ -3,6 +3,16 @@ export type PaymentStatus = "unpaid" | "partial" | "paid";
 export type InvoiceIssuanceMode = "auto" | "manual";
 export type InvoicePreference = "tax_invoice_auto" | "tax_invoice_manual" | "invoice" | "cash_receipt";
 export type TaxApiProvider = "popbill" | "barobill" | "hometax";
+export type BillingPlanId = "free" | "starter" | "pro50" | "pro100";
+
+export type BillingProfile = {
+  planId: BillingPlanId;
+  status: "active" | "past_due" | "cancelled";
+  creditBalance: number;
+  includedInvoiceUsed: number;
+  allowanceStartedAt: string;
+  allowanceEndsAt: string;
+};
 
 export type TaxApiIntegration = {
   provider: TaxApiProvider;

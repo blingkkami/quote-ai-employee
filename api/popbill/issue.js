@@ -1,6 +1,7 @@
 import popbill from "popbill";
 import { authorizeRequest, getUserConnection } from "../../server/popbill/auth.js";
 import { getPopbillConfig } from "../../server/popbill/config.js";
+import { authorizeBillingActions, requiredBillingReference, reverseBillingActions } from "../../server/billing/service.js";
 
 const popbillConfig = getPopbillConfig();
 const LINK_ID = popbillConfig.linkId;
@@ -149,6 +150,7 @@ export default async function handler(request, response) {
   }
   const auth = await authorizeRequest(request, response);
   if (!auth) return;
+  let billingApproval;
 
   try {
     const connection = await getUserConnection(auth.client, auth.user.id);
@@ -225,6 +227,14 @@ export default async function handler(request, response) {
         message: "팝빌 서버 인증정보가 없어 실제 발행하지 않았습니다. Vercel 환경변수를 등록한 뒤 다시 시도해 주세요.",
         quoteId: body.quoteId
       });
+      return;
+    }
+    billingApproval = await authorizeBillingActions(auth.client, [{
+      feature: "tax_invoice",
+      referenceId: requiredBillingReference(body.billingReference, "전자세금계산서")
+    }]);
+    if (!billingApproval.ok) {
+      response.status(402).json({ ok: false, invoiceStatus: "failed", message: billingApproval.message });
       return;
     }
 
@@ -304,6 +314,7 @@ export default async function handler(request, response) {
     }
 
     const err = result.error || {};
+    if (billingApproval?.approved) await reverseBillingActions(auth.client, billingApproval.approved);
     const message = err.message || err.code || "세금계산서 발행에 실패했습니다.";
     response.status(200).json({
       ok: false,
@@ -314,6 +325,7 @@ export default async function handler(request, response) {
       quoteId
     });
   } catch (error) {
+    if (billingApproval?.approved) await reverseBillingActions(auth.client, billingApproval.approved);
     response.status(500).json({
       ok: false,
       invoiceStatus: "failed",

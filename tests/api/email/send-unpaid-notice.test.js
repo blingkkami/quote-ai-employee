@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ maybeSingle: vi.fn(), sendConnectedEmail: vi.fn() }));
+vi.mock("../../../server/billing/service.js", () => ({
+  authorizeBillingActions: async (_client, actions) => ({ ok: true, approved: actions }),
+  reverseBillingActions: async () => {},
+  requiredBillingReference: (value) => value
+}));
 vi.mock("../../../server/popbill/auth.js", () => ({
   authorizeRequest: async () => ({
     user: { id: "user-1" },
@@ -42,7 +47,7 @@ describe("unpaid notice email handler", () => {
   it("recalculates the balance from saved sales and includes the saved account", async () => {
     const { default: handler } = await import("../../../api/email/send-unpaid-notice.js");
     const response = makeResponse();
-    await handler({ method: "POST", body: { customerId: "customer-1", totalAmount: 1 } }, response);
+    await handler({ method: "POST", body: { customerId: "customer-1", totalAmount: 1, billingReference: "unpaid-1" } }, response);
     expect(response.body).toMatchObject({ ok: true, totalAmount: 320000, recipient: "client@example.com" });
     expect(mocks.sendConnectedEmail).toHaveBeenCalledWith({ role: "service" }, "user-1", expect.objectContaining({
       to: "client@example.com",

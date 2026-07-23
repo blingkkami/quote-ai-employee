@@ -1,5 +1,6 @@
 import { authorizeRequest } from "../../server/popbill/auth.js";
 import { requireEmailAdmin, sendConnectedEmail } from "../../server/email/service.js";
+import { authorizeBillingActions, requiredBillingReference, reverseBillingActions } from "../../server/billing/service.js";
 
 const escapeHtml = (value) => String(value ?? "")
   .replace(/&/g, "&amp;")
@@ -20,6 +21,7 @@ export default async function handler(request, response) {
 
   const auth = await authorizeRequest(request, response);
   if (!auth) return;
+  let billingApproval;
 
   try {
     let body = request.body || {};
@@ -71,6 +73,17 @@ export default async function handler(request, response) {
       response.status(413).json({ ok: false, message: "첨부 문서 용량이 너무 큽니다." });
       return;
     }
+    const billingReferences = body.billingReferences || {};
+    const billingActions = [
+      { feature: "quote_pdf", referenceId: requiredBillingReference(billingReferences.quote_pdf, "견적서 PDF") },
+      { feature: "transaction_statement", referenceId: requiredBillingReference(billingReferences.transaction_statement, "거래명세서") },
+      { feature: "email", referenceId: requiredBillingReference(billingReferences.email, "메일") }
+    ];
+    billingApproval = await authorizeBillingActions(auth.client, billingActions);
+    if (!billingApproval.ok) {
+      response.status(402).json({ ok: false, message: billingApproval.message });
+      return;
+    }
 
     const projectName = String(body.projectName || quote.form?.projectName || "견적").trim();
     const customerName = String(body.customerName || customer?.name || quote.customerSnapshot?.name || "고객").trim();
@@ -90,6 +103,7 @@ export default async function handler(request, response) {
       message: `${delivery.sender}에서 ${recipient}로 견적서와 거래명세서를 발송했습니다.`
     });
   } catch (error) {
+    if (billingApproval?.approved) await reverseBillingActions(auth.client, billingApproval.approved);
     response.status(500).json({ ok: false, message: error instanceof Error ? error.message : String(error) });
   }
 }
