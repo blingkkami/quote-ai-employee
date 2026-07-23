@@ -224,6 +224,12 @@ export function QuoteBuilder({
         <div className="items">
           <datalist id="quote-category-suggestions">{categorySuggestions.map((category) => <option key={`category-${category}`} value={category} />)}</datalist>
           <datalist id="quote-description-suggestions">{descriptionSuggestions.map((description) => <option key={`description-${description}`} value={description} />)}</datalist>
+          <div className="item-head" aria-hidden="true">
+            <span>구분</span>
+            <span>내용</span>
+            <span>금액(원)</span>
+            <span />
+          </div>
           {draft.items.map((item, index) => (
             <div className="item-row" key={item.id}>
               <input aria-label={`항목 ${index + 1} 구분`} list="quote-category-suggestions" placeholder="구분" value={item.category} onChange={(event) => updateItem(item.id, { category: event.target.value })} />

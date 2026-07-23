@@ -2124,6 +2124,21 @@ textarea {
   gap: 6px;
 }
 
+/* 입력 칸과 완전히 같은 격자를 써야 열 제목이 어긋나지 않는다.
+   좌우 여백은 컨테이너가 아니라 각 제목에 주어 입력 글자와 시작점을 맞춘다. */
+.item-head {
+  display: grid;
+  grid-template-columns: 0.76fr 1.7fr 104px 34px;
+  gap: 6px;
+  padding: 0 0 2px;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.item-head > span {
+  padding-left: 10px;
+}
+
 .segmented {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -5215,6 +5230,11 @@ button.kpi.active {
   .hbar,
   .metric-bar {
     grid-template-columns: 1fr;
+  }
+
+  /* 칸이 세로로 쌓이면 열 제목이 맞지 않으므로 숨기고, 각 칸의 안내 문구로 구분한다. */
+  .item-head {
+    display: none;
   }
 
   .crm-profile-head {
