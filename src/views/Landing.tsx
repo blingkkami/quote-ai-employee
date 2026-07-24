@@ -29,32 +29,32 @@ const workflow = [
 const featureCards = [
   {
     icon: FileText,
-    title: "견적서·거래명세서",
-    body: "실시간 미리보기와 자동 저장으로 작성하고, 로고와 도장이 반영된 PDF로 발행합니다."
+    title: "한 번 입력으로 문서 완성",
+    body: "견적서와 거래명세서를 실시간 미리보기로 확인하고, 로고·도장이 반영된 PDF로 바로 발행합니다."
   },
   {
     icon: Receipt,
-    title: "세금계산서 발행",
-    body: "팝빌 연동이 완료된 사용자만 승인 흐름에서 실제 세금계산서를 발행하도록 구분합니다."
+    title: "발행 누락 없이 다음 단계로",
+    body: "승인된 견적을 세금계산서 발행으로 자연스럽게 이어갑니다. 팝빌을 연동한 사업자만 실제 발행됩니다."
   },
   {
     icon: Users,
-    title: "고객·매입처 관리",
-    body: "목록에서 빠르게 검색하고 상세 화면에서 사업자 정보와 전체 거래 내역을 확인합니다."
+    title: "고객별 거래를 한눈에",
+    body: "이름·사업자번호로 빠르게 찾고, 상세 화면에서 누적 매출과 전체 거래 내역을 바로 확인합니다."
   },
   {
     icon: HandCoins,
-    title: "수금·매입 원장",
-    body: "부분 수금, 부분 지급, 미수금과 미지급금을 실제 입출금 날짜에 맞춰 관리합니다."
+    title: "남은 금액이 바로 보이는 원장",
+    body: "부분 수금과 부분 지급을 실제 입출금 날짜로 기록해 미수금·미지급금 잔액을 항상 최신으로 유지합니다."
   },
   {
     icon: Mail,
-    title: "내 메일로 자동 발송",
-    body: "Gmail·Microsoft·네이버·회사 메일을 연결해 문서와 미수금 안내를 내 주소로 보냅니다."
+    title: "내 메일 주소로 그대로 발송",
+    body: "Gmail·Microsoft·네이버·회사 메일을 연결해 문서와 미수금 안내를 내 주소에서 보냅니다."
   },
   {
     icon: BarChart3,
-    title: "기간별 운영 현황",
+    title: "이번 달 사업 흐름 확인",
     body: "월간·연간 매출, 수금, 매입, 미수금과 추정 이익을 한 화면에서 비교합니다."
   }
 ];
@@ -126,13 +126,13 @@ export function Landing({ onStart }: { onStart: () => void }) {
       <main id="top">
         <section className="landing-hero">
           <div className="landing-hero-copy">
-            <p className="landing-kicker">견적·발행·정산 통합 업무 도구</p>
+            <p className="landing-kicker">프리랜서·1인 사업장을 위한 견적·발행·수금 워크플로우</p>
             <h1>블링빌</h1>
-            <strong>견적부터 입금 확인까지, 끊김 없이 한 번에</strong>
-            <p>문서를 만들고 고객에게 보내는 일부터 세금계산서, 수금과 매입, 미수금 관리까지 반복되는 사업장 업무를 하나의 흐름으로 연결합니다.</p>
+            <strong>반복 입력과 발행 누락을 줄입니다</strong>
+            <p>견적서를 한 번 작성하면 거래명세서·세금계산서 발행, 고객 발송, 수금·미수 관리까지 같은 정보로 이어집니다. 문서마다 고객과 금액을 다시 입력할 필요가 없습니다.</p>
             <div className="landing-hero-actions">
-              <button onClick={onStart}>로그인하고 시작하기 <ArrowRight size={18} /></button>
-              <a href="#workflow">업무 흐름 보기</a>
+              <button onClick={onStart}>무료로 시작하기 <ArrowRight size={18} /></button>
+              <a href="#features">기능 먼저 보기</a>
             </div>
             <div className="landing-hero-proof" aria-label="블링빌 핵심 특징">
               <span><Check size={15} /> 자동 저장</span>
@@ -152,6 +152,13 @@ export function Landing({ onStart }: { onStart: () => void }) {
               <img src="/blingbill-dashboard-preview.png" alt="블링빌 대시보드에서 매출, 수금, 미수금과 거래명세서를 확인하는 화면" />
             </div>
           </figure>
+        </section>
+
+        <section className="landing-audience" aria-label="이런 분께 맞습니다">
+          <strong>이런 분께 맞습니다</strong>
+          <span>디자인·개발 프리랜서</span>
+          <span>1인·소규모 사업장</span>
+          <span>견적과 세금계산서를 자주 다루는 팀</span>
         </section>
 
         <section className="landing-document-strip" aria-label="지원 업무">
