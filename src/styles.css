@@ -3924,6 +3924,80 @@ table tfoot th {
   overflow: auto;
 }
 
+.dashboard-todo {
+  display: grid;
+  gap: 12px;
+}
+
+.dashboard-todo-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+}
+
+.dashboard-todo-head span {
+  color: #16836f;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.dashboard-todo-head strong {
+  font-size: 16px;
+  color: #1f2a3b;
+}
+
+.dashboard-todo.empty .dashboard-todo-head strong {
+  color: #64748b;
+  font-weight: 600;
+}
+
+.todo-cards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.todo-card {
+  display: grid;
+  gap: 2px;
+  padding: 12px 14px;
+  border: 1px solid #e3e8ee;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.todo-card.warn {
+  border-color: #f0cd94;
+  background: #fff8ec;
+}
+
+.todo-card.danger {
+  border-color: #eeb4b4;
+  background: #fef1f1;
+}
+
+.todo-card span {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.todo-card strong {
+  font-size: 22px;
+  color: #1f2a3b;
+}
+
+.todo-card small {
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+@media (max-width: 700px) {
+  .todo-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .item-page {
   height: calc(100vh - 62px);
   overflow: auto;

@@ -5,6 +5,7 @@ import { SectionTitle } from "../components/SectionTitle";
 import { DataTable } from "../components/DataTable";
 import { dateInputValue, daysSince, monthKey, parseDate, yearKey } from "../lib/date";
 import { dashboardPeriodData, saleRecordDate } from "../lib/dashboard";
+import { buildTransactions, receivableTransactions, todoCounts } from "../lib/transaction";
 
 type DashboardTotals = {
   sales: number;
@@ -79,10 +80,42 @@ export function Dashboard({ data, totals }: { data: AppData; totals: DashboardTo
     const quote = data.quotes.find((item) => item.id === sale.quoteId);
     return daysSince(quote?.approvedAt || sale.createdAt) >= 30;
   });
+  // 실행형 위젯: 견적·수금·고객을 거래로 묶어 "지금 처리할 일"을 집계한다(P2).
+  const transactions = useMemo(() => buildTransactions(data), [data]);
+  const todo = useMemo(() => todoCounts(transactions), [transactions]);
+  const receivableCount = useMemo(() => receivableTransactions(transactions).length, [transactions]);
 
   return (
     <section className="dashboard">
-      {totals.unpaid > 0 && <div className="alert">미수금 {money(totals.unpaid)}원이 남아 있습니다. 거래처 원장에서 수금 상태를 정리하세요.</div>}
+      {todo.totalOutstanding > 0 ? (
+        <div className="panel dashboard-todo">
+          <div className="dashboard-todo-head">
+            <span>지금 처리할 일</span>
+            <strong>총 미수 {money(todo.totalOutstanding)}원 · {receivableCount}건</strong>
+          </div>
+          <div className="todo-cards">
+            <div className={`todo-card${todo.reviewNeeded > 0 ? " warn" : ""}`}>
+              <span>확인 필요 미수</span><strong>{todo.reviewNeeded}건</strong><small>경과 14일 이상</small>
+            </div>
+            <div className={`todo-card${todo.resendNeeded > 0 ? " danger" : ""}`}>
+              <span>재안내 필요</span><strong>{todo.resendNeeded}건</strong><small>발송 실패·장기 미수</small>
+            </div>
+            <div className="todo-card">
+              <span>부분수금 진행</span><strong>{todo.partial}건</strong><small>잔액 남음</small>
+            </div>
+            <div className="todo-card">
+              <span>이번 주 예정</span><strong>{todo.dueThisWeek}건</strong><small>경과 7일 이내</small>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="panel dashboard-todo empty">
+          <div className="dashboard-todo-head">
+            <span>지금 처리할 일</span>
+            <strong>미수 거래가 없습니다. 모두 정리되었습니다.</strong>
+          </div>
+        </div>
+      )}
       {longOverdueSales.length > 0 && <div className="alert danger-alert">30일 이상 지난 미수금이 {longOverdueSales.length}건 있습니다. 입금일과 잔액을 확인하세요.</div>}
       <div className="dashboard-head">
         <SectionTitle title="대시보드 보기" hint={`${period === "month" ? "이번 달" : "올해"} 기준 수치`} />
