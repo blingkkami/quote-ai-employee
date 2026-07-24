@@ -82,7 +82,7 @@ export default async function handler(request, response) {
       response.status(409).json({ ok: false, message: "설정에서 미수금 안내용 입금계좌를 등록하고 표시를 켜 주세요." });
       return;
     }
-    billingApproval = await authorizeBillingActions(auth.client, [{
+    billingApproval = await authorizeBillingActions(auth.admin, auth.user.id, [{
       feature: "unpaid_notice",
       referenceId: requiredBillingReference(body.billingReference, "미수금 안내")
     }]);
@@ -109,7 +109,7 @@ export default async function handler(request, response) {
       message: `${delivery.sender}에서 ${recipient}로 미수금 안내를 발송했습니다.`
     });
   } catch (error) {
-    if (billingApproval?.approved) await reverseBillingActions(auth.client, billingApproval.approved);
+    if (billingApproval?.approved) await reverseBillingActions(auth.admin, auth.user.id, billingApproval.approved);
     response.status(500).json({ ok: false, message: error instanceof Error ? error.message : String(error) });
   }
 }

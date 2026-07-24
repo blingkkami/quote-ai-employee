@@ -31,10 +31,10 @@ import { DocumentRenderStage } from "./components/DocumentRenderStage";
 import { hasPaymentAccount, paymentAccountText } from "./lib/payment-account";
 import { sendUnpaidNotice } from "./lib/unpaid-notice";
 import { SupportCenter } from "./components/SupportCenter";
-import { BILLING_ENABLED, canOpenView } from "./lib/billing-plans";
+import { canOpenView } from "./lib/billing-plans";
 import { useBillingAccount } from "./hooks/useBillingAccount";
 import type { BillingProfile } from "./types";
-import { authorizeBillingAction, grantSignupCredits, reverseBillingAction, type BillableAction } from "./lib/billing";
+import { grantSignupCredits, type BillableAction } from "./lib/billing";
 import { BillingView } from "./views/BillingView";
 import { completeRedirectedCheckout } from "./lib/billing-checkout";
 
@@ -79,38 +79,14 @@ function WorkspaceApp({
   const approvingIds = useRef(new Set<string>());
   const effectivePlanId = billing.status === "active" ? billing.planId : "free";
 
+  // 실제 크레딧 차감과 실패 복구는 서버 API가 검증된 user_id로 원자적으로 처리한다.
+  // 클라이언트는 발행/발송 API에 넘길 참조번호만 생성한다(브라우저에서 직접 차감·복구 불가).
   const authorizeBundle = async (features: BillableAction[], actionId: string) => {
-    // 안전 모드: 과금 DB를 호출하지 않고 참조번호만 만들어 통과시킨다(모든 기능 무료).
-    if (!BILLING_ENABLED) {
-      return features.map((feature) => ({ feature, referenceId: `${actionId}:${feature}` }));
-    }
-    const approved: { feature: BillableAction; referenceId: string }[] = [];
-    try {
-      for (const feature of features) {
-        const referenceId = `${actionId}:${feature}`;
-        const result = await authorizeBillingAction(feature, referenceId);
-        if (!result.allowed) {
-          await Promise.allSettled(approved.map((item) => reverseBillingAction(item.feature, item.referenceId)));
-          window.alert(result.message);
-          await onBillingRefresh();
-          return null;
-        }
-        approved.push({ feature, referenceId });
-      }
-      await onBillingRefresh();
-      return approved;
-    } catch (error) {
-      await Promise.allSettled(approved.map((item) => reverseBillingAction(item.feature, item.referenceId)));
-      window.alert(`요금제 사용 승인을 확인하지 못했습니다. ${error instanceof Error ? error.message : String(error)}`);
-      await onBillingRefresh();
-      return null;
-    }
+    return features.map((feature) => ({ feature, referenceId: `${actionId}:${feature}` }));
   };
 
-  const reverseBundle = async (approved: { feature: BillableAction; referenceId: string }[]) => {
-    if (!BILLING_ENABLED) return; // 안전 모드: 되돌릴 과금이 없음
-    await Promise.allSettled(approved.map((item) => reverseBillingAction(item.feature, item.referenceId)));
-    await onBillingRefresh();
+  const reverseBundle = async (_approved: { feature: BillableAction; referenceId: string }[]) => {
+    // 서버 API가 외부 발행/발송 실패 시 복구를 담당하므로 클라이언트에서는 아무것도 하지 않는다.
   };
 
   const activeQuote = data.quotes.find((quote) => quote.id === activeQuoteId) ?? (view === "quote" ? draftQuote : data.quotes[0] ?? draftQuote);

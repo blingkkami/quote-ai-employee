@@ -229,7 +229,7 @@ export default async function handler(request, response) {
       });
       return;
     }
-    billingApproval = await authorizeBillingActions(auth.client, [{
+    billingApproval = await authorizeBillingActions(auth.admin, auth.user.id, [{
       feature: "tax_invoice",
       referenceId: requiredBillingReference(body.billingReference, "전자세금계산서")
     }]);
@@ -314,7 +314,7 @@ export default async function handler(request, response) {
     }
 
     const err = result.error || {};
-    if (billingApproval?.approved) await reverseBillingActions(auth.client, billingApproval.approved);
+    if (billingApproval?.approved) await reverseBillingActions(auth.admin, auth.user.id, billingApproval.approved);
     const message = err.message || err.code || "세금계산서 발행에 실패했습니다.";
     response.status(200).json({
       ok: false,
@@ -325,7 +325,7 @@ export default async function handler(request, response) {
       quoteId
     });
   } catch (error) {
-    if (billingApproval?.approved) await reverseBillingActions(auth.client, billingApproval.approved);
+    if (billingApproval?.approved) await reverseBillingActions(auth.admin, auth.user.id, billingApproval.approved);
     response.status(500).json({
       ok: false,
       invoiceStatus: "failed",

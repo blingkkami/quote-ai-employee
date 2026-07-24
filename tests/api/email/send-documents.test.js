@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ maybeSingle: vi.fn(), sendConnectedEmail: vi.fn() }));
 vi.mock("../../../server/billing/service.js", () => ({
-  authorizeBillingActions: async (_client, actions) => ({ ok: true, approved: actions }),
+  authorizeBillingActions: async (_admin, _userId, actions) => ({ ok: true, approved: actions }),
   reverseBillingActions: async () => {},
   requiredBillingReference: (value) => value
 }));

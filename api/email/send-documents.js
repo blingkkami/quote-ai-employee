@@ -79,7 +79,7 @@ export default async function handler(request, response) {
       { feature: "transaction_statement", referenceId: requiredBillingReference(billingReferences.transaction_statement, "거래명세서") },
       { feature: "email", referenceId: requiredBillingReference(billingReferences.email, "메일") }
     ];
-    billingApproval = await authorizeBillingActions(auth.client, billingActions);
+    billingApproval = await authorizeBillingActions(auth.admin, auth.user.id, billingActions);
     if (!billingApproval.ok) {
       response.status(402).json({ ok: false, message: billingApproval.message });
       return;
@@ -103,7 +103,7 @@ export default async function handler(request, response) {
       message: `${delivery.sender}에서 ${recipient}로 견적서와 거래명세서를 발송했습니다.`
     });
   } catch (error) {
-    if (billingApproval?.approved) await reverseBillingActions(auth.client, billingApproval.approved);
+    if (billingApproval?.approved) await reverseBillingActions(auth.admin, auth.user.id, billingApproval.approved);
     response.status(500).json({ ok: false, message: error instanceof Error ? error.message : String(error) });
   }
 }

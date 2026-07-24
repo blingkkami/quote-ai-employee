@@ -10,15 +10,16 @@ afterAll(() => {
 });
 
 describe("billing service", () => {
-  it("authorizes a bundle and preserves each idempotency reference", async () => {
+  it("authorizes a bundle with the verified user id and preserves each idempotency reference", async () => {
     const rpc = vi.fn().mockResolvedValue({ data: [{ allowed: true, source: "credit" }], error: null });
     const actions = [
       { feature: "quote_pdf", referenceId: "action-1:pdf" },
       { feature: "email", referenceId: "action-1:email" }
     ];
-    const result = await authorizeBillingActions({ rpc }, actions);
+    const result = await authorizeBillingActions({ rpc }, "user-1", actions);
     expect(result).toEqual({ ok: true, approved: actions });
     expect(rpc).toHaveBeenNthCalledWith(2, "consume_billing_action", {
+      p_user_id: "user-1",
       p_feature: "email",
       p_reference_id: "action-1:email"
     });
@@ -29,15 +30,21 @@ describe("billing service", () => {
       .mockResolvedValueOnce({ data: [{ allowed: true }], error: null })
       .mockResolvedValueOnce({ data: [{ allowed: false, message: "크레딧 부족" }], error: null })
       .mockResolvedValue({ data: [{ reversed: true }], error: null });
-    const result = await authorizeBillingActions({ rpc }, [
+    const result = await authorizeBillingActions({ rpc }, "user-1", [
       { feature: "quote_pdf", referenceId: "pdf-1" },
       { feature: "email", referenceId: "email-1" }
     ]);
     expect(result).toEqual({ ok: false, message: "크레딧 부족" });
     expect(rpc).toHaveBeenCalledWith("reverse_billing_action", {
+      p_user_id: "user-1",
       p_feature: "quote_pdf",
       p_reference_id: "pdf-1"
     });
+  });
+
+  it("throws when billing is enabled but no admin client is provided", async () => {
+    await expect(authorizeBillingActions(null, "user-1", [{ feature: "email", referenceId: "e-1" }]))
+      .rejects.toThrow("결제 서버의 관리자 설정이 필요합니다.");
   });
 
   it("rejects missing or oversized references", () => {
@@ -47,8 +54,9 @@ describe("billing service", () => {
 
   it("can reverse all actions after an external failure", async () => {
     const rpc = vi.fn().mockResolvedValue({ data: [{ reversed: true }], error: null });
-    await reverseBillingActions({ rpc }, [{ feature: "unpaid_notice", referenceId: "notice-1" }]);
+    await reverseBillingActions({ rpc }, "user-1", [{ feature: "unpaid_notice", referenceId: "notice-1" }]);
     expect(rpc).toHaveBeenCalledWith("reverse_billing_action", {
+      p_user_id: "user-1",
       p_feature: "unpaid_notice",
       p_reference_id: "notice-1"
     });

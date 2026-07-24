@@ -186,7 +186,9 @@ grant execute on function public.grant_signup_credits(text) to authenticated;
 
 -- 발행/발송 직전에 호출하는 원자적 사용 승인 함수입니다.
 -- 동일 reference_id 재호출은 추가 차감 없이 최초 결과를 반환합니다.
-create or replace function public.consume_billing_action(p_feature text, p_reference_id text)
+-- 발행/발송 승인은 서버(service role)만 검증된 p_user_id로 호출합니다.
+-- 사용자에게 직접 실행 권한을 주지 않아, 브라우저에서 임의 차감·복구를 할 수 없습니다.
+create or replace function public.consume_billing_action(p_user_id uuid, p_feature text, p_reference_id text)
 returns table (allowed boolean, source text, credit_balance integer, included_invoice_used integer, message text)
 language plpgsql
 security definer set search_path = public
@@ -199,6 +201,12 @@ declare
   chosen_source text;
   effective_plan text;
 begin
+  if auth.role() <> 'service_role' then
+    raise exception 'service role only';
+  end if;
+  if p_user_id is null then
+    raise exception 'p_user_id가 필요합니다.';
+  end if;
   if p_feature not in ('tax_invoice', 'quote_pdf', 'transaction_statement', 'email', 'unpaid_notice') then
     raise exception '지원하지 않는 과금 기능입니다.';
   end if;
@@ -207,14 +215,14 @@ begin
   end if;
 
   select * into existing from public.billing_usage_events
-  where user_id = auth.uid() and feature = p_feature and reference_id = p_reference_id;
+  where user_id = p_user_id and feature = p_feature and reference_id = p_reference_id;
   if found then
-    select * into account from public.billing_accounts where user_id = auth.uid();
+    select * into account from public.billing_accounts where user_id = p_user_id;
     return query select true, existing.source, account.credit_balance, account.included_invoice_used, '이미 승인된 요청입니다.';
     return;
   end if;
 
-  select * into account from public.billing_accounts where user_id = auth.uid() for update;
+  select * into account from public.billing_accounts where user_id = p_user_id for update;
   if not found then
     return query select false, 'credit'::text, 0, 0, '요금 계정을 찾을 수 없습니다.';
     return;
@@ -225,7 +233,7 @@ begin
 
   -- 계정 잠금을 기다린 동시 요청이 먼저 처리됐는지 다시 확인합니다.
   select * into existing from public.billing_usage_events
-  where user_id = auth.uid() and feature = p_feature and reference_id = p_reference_id;
+  where user_id = p_user_id and feature = p_feature and reference_id = p_reference_id;
   if found then
     return query select true, existing.source, account.credit_balance, account.included_invoice_used, '이미 승인된 요청입니다.';
     return;
@@ -240,7 +248,7 @@ begin
       chosen_source := 'included';
       cost := 0;
       update public.billing_accounts set included_invoice_used = included_invoice_used + 1, updated_at = now()
-      where user_id = auth.uid();
+      where user_id = p_user_id;
       account.included_invoice_used := account.included_invoice_used + 1;
     else
       chosen_source := 'credit';
@@ -258,23 +266,25 @@ begin
 
   if cost > 0 then
     update public.billing_accounts set credit_balance = credit_balance - cost, updated_at = now()
-    where user_id = auth.uid();
+    where user_id = p_user_id;
     account.credit_balance := account.credit_balance - cost;
     insert into public.credit_ledger (user_id, delta, balance_after, reason, reference_id)
-    values (auth.uid(), -cost, account.credit_balance, p_feature, p_reference_id);
+    values (p_user_id, -cost, account.credit_balance, p_feature, p_reference_id);
   end if;
 
   insert into public.billing_usage_events (user_id, feature, reference_id, source, units)
-  values (auth.uid(), p_feature, p_reference_id, chosen_source, cost);
+  values (p_user_id, p_feature, p_reference_id, chosen_source, cost);
   return query select true, chosen_source, account.credit_balance, account.included_invoice_used, '사용이 승인되었습니다.';
 end;
 $$;
 
-revoke all on function public.consume_billing_action(text, text) from public;
-grant execute on function public.consume_billing_action(text, text) to authenticated;
+revoke all on function public.consume_billing_action(uuid, text, text) from public;
+grant execute on function public.consume_billing_action(uuid, text, text) to service_role;
 
 -- 외부 발행/발송이 실패했을 때 같은 reference_id의 승인 건을 복구합니다.
-create or replace function public.reverse_billing_action(p_feature text, p_reference_id text)
+-- 서버(service role)만 호출합니다. 사용자가 직접 호출해 정상 발행 건의 크레딧을
+-- 되돌려받는 악용을 막기 위해 authenticated 권한을 부여하지 않습니다.
+create or replace function public.reverse_billing_action(p_user_id uuid, p_feature text, p_reference_id text)
 returns table (reversed boolean, credit_balance integer, included_invoice_used integer, message text)
 language plpgsql
 security definer set search_path = public
@@ -283,13 +293,19 @@ declare
   account public.billing_accounts%rowtype;
   usage public.billing_usage_events%rowtype;
 begin
-  select * into account from public.billing_accounts where user_id = auth.uid() for update;
+  if auth.role() <> 'service_role' then
+    raise exception 'service role only';
+  end if;
+  if p_user_id is null then
+    raise exception 'p_user_id가 필요합니다.';
+  end if;
+  select * into account from public.billing_accounts where user_id = p_user_id for update;
   if not found then
     return query select false, 0, 0, '요금 계정을 찾을 수 없습니다.';
     return;
   end if;
   select * into usage from public.billing_usage_events
-  where user_id = auth.uid() and feature = p_feature and reference_id = p_reference_id
+  where user_id = p_user_id and feature = p_feature and reference_id = p_reference_id
   for update;
   if not found then
     return query select false, account.credit_balance, account.included_invoice_used, '복구할 승인 기록이 없습니다.';
@@ -299,14 +315,14 @@ begin
   if usage.source = 'credit' and usage.units > 0 then
     update public.billing_accounts
     set credit_balance = credit_balance + usage.units, updated_at = now()
-    where user_id = auth.uid()
+    where user_id = p_user_id
     returning * into account;
     insert into public.credit_ledger (user_id, delta, balance_after, reason, reference_id)
-    values (auth.uid(), usage.units, account.credit_balance, 'refund', 'reverse:' || p_feature || ':' || p_reference_id);
+    values (p_user_id, usage.units, account.credit_balance, 'refund', 'reverse:' || p_feature || ':' || p_reference_id);
   elsif usage.source = 'included' then
     update public.billing_accounts
     set included_invoice_used = greatest(0, included_invoice_used - 1), updated_at = now()
-    where user_id = auth.uid()
+    where user_id = p_user_id
     returning * into account;
   end if;
 
@@ -315,8 +331,12 @@ begin
 end;
 $$;
 
-revoke all on function public.reverse_billing_action(text, text) from public;
-grant execute on function public.reverse_billing_action(text, text) to authenticated;
+revoke all on function public.reverse_billing_action(uuid, text, text) from public;
+grant execute on function public.reverse_billing_action(uuid, text, text) to service_role;
+
+-- 과거에 사용자에게 노출됐을 수 있는 2-인자 버전을 제거합니다(브라우저 직접 호출 차단).
+drop function if exists public.consume_billing_action(text, text);
+drop function if exists public.reverse_billing_action(text, text);
 
 -- PortOne에서 결제 금액과 PAID 상태를 검증한 뒤 service role만 호출합니다.
 create or replace function public.apply_paid_billing_order(p_order_id uuid, p_provider_order_id text)
