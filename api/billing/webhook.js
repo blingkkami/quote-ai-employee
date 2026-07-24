@@ -1,8 +1,54 @@
+import crypto from "crypto";
 import { createClient } from "@supabase/supabase-js";
 import { decryptBillingKey } from "../../server/billing/encryption.js";
 import { requireBillingProduct } from "../../server/billing/products.js";
 import { nextMonthlyChargeAt } from "../../server/billing/dates.js";
 import { billingCustomerId } from "../../server/billing/customer.js";
+
+const headerValue = (request, name) => {
+  const headers = request?.headers;
+  if (!headers) return "";
+  if (typeof headers.get === "function") return String(headers.get(name) || "");
+  return String(headers[name.toLowerCase()] || headers[name] || "");
+};
+
+// 원본 요청 바디를 문자열로 읽는다. 스트림을 먼저 소비하고, 실패 시 파싱된 body로 대체한다.
+export async function readRawBody(request) {
+  try {
+    const chunks = [];
+    for await (const chunk of request) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    if (chunks.length) return Buffer.concat(chunks).toString("utf8");
+  } catch {
+    // request가 스트림이 아니면(테스트 등) 아래 대체 경로로 넘어간다.
+  }
+  if (typeof request.body === "string") return request.body;
+  if (request.body && typeof request.body === "object") return JSON.stringify(request.body);
+  return "";
+}
+
+// PortOne V2 Standard Webhooks 서명 검증. 위조·재전송(replay) 웹훅을 차단한다.
+export function verifyWebhookSignature(secret, request, rawBody) {
+  const id = headerValue(request, "webhook-id");
+  const timestamp = headerValue(request, "webhook-timestamp");
+  const signatureHeader = headerValue(request, "webhook-signature");
+  if (!id || !timestamp || !signatureHeader) throw new Error("웹훅 서명 헤더가 없습니다.");
+  const ts = Number(timestamp);
+  const now = Math.floor(Date.now() / 1000);
+  if (!Number.isFinite(ts) || Math.abs(now - ts) > 300) throw new Error("웹훅 타임스탬프가 유효 범위를 벗어났습니다.");
+  const secretBytes = Buffer.from(secret.replace(/^whsec_/, ""), "base64");
+  const expected = crypto.createHmac("sha256", secretBytes).update(`${id}.${timestamp}.${rawBody}`).digest("base64");
+  const expectedBuf = Buffer.from(expected, "base64");
+  const provided = signatureHeader.split(" ").map((part) => (part.includes(",") ? part.split(",")[1] : part));
+  const matched = provided.some((sig) => {
+    try {
+      const sigBuf = Buffer.from(sig, "base64");
+      return sigBuf.length === expectedBuf.length && crypto.timingSafeEqual(sigBuf, expectedBuf);
+    } catch {
+      return false;
+    }
+  });
+  if (!matched) throw new Error("웹훅 서명이 일치하지 않습니다.");
+}
 
 const config = () => {
   const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
@@ -85,10 +131,17 @@ export default async function handler(request, response) {
     return;
   }
   try {
+    const rawBody = await readRawBody(request);
+    const webhookSecret = String(process.env.PORTONE_WEBHOOK_SECRET || "").trim();
+    // 시크릿이 설정된 경우에만 서명을 강제한다. 미설정 시에는 기존처럼 PortOne 재조회로만 검증한다.
+    if (webhookSecret) verifyWebhookSignature(webhookSecret, request, rawBody);
+
     const { admin, storeId, apiSecret } = config();
-    let body = request.body || {};
-    if (typeof body === "string") {
-      try { body = JSON.parse(body); } catch { body = {}; }
+    let body = {};
+    if (rawBody) {
+      try { body = JSON.parse(rawBody); } catch { body = {}; }
+    } else if (request.body && typeof request.body === "object") {
+      body = request.body;
     }
     const paymentId = String(body.data?.paymentId || body.paymentId || "").trim();
     if (!paymentId) {
